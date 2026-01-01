@@ -179,13 +179,12 @@ def run_sr_job(job_id: str, input_file: Path, scale: int, model: str, output_dir
             "message"
         ] = f"Applying {model.upper()} x{scale} super-resolution..."
 
-        from .super_resolution import process_sentinel2_sr
+        from .farm_sr import process_farm_sr
 
-        result = process_sentinel2_sr(
+        result = process_farm_sr(
             input_tif=input_file,
             output_dir=output_dir,
             scale=scale,
-            model_type=model,
         )
 
         sr_jobs[job_id]["status"] = "tiling"
@@ -194,10 +193,10 @@ def run_sr_job(job_id: str, input_file: Path, scale: int, model: str, output_dir
         # Generate tiles from SR output
         sr_tif = result["outputs"].get("sr_tif")
         if sr_tif and Path(sr_tif).exists():
-            from .tiling import generate_tiles
+            from .tiling import process_raster_to_tiles
 
             sr_tiles_dir = DATA_DIR / "tiles_sr"
-            generate_tiles(
+            process_raster_to_tiles(
                 input_file=Path(sr_tif),
                 output_dir=sr_tiles_dir,
                 min_zoom=settings.tile_min_zoom,

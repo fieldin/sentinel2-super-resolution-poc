@@ -12,7 +12,6 @@ from typing import Tuple
 import json
 from datetime import datetime
 
-from app.super_resolution import create_sr_model, download_model
 from app.cnn_super_resolution import RealESRGAN
 
 
