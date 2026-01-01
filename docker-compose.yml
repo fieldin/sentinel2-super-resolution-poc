@@ -14,7 +14,7 @@ services:
       - DAYS_LOOKBACK=${DAYS_LOOKBACK:-30}
       - MAX_CLOUD_PCT=${MAX_CLOUD_PCT:-10}
       - TILE_MIN_ZOOM=${TILE_MIN_ZOOM:-10}
-      - TILE_MAX_ZOOM=${TILE_MAX_ZOOM:-16}
+      - TILE_MAX_ZOOM=${TILE_MAX_ZOOM:-18}
       - MAPBOX_ACCESS_TOKEN=${MAPBOX_ACCESS_TOKEN}
       - AOI_PATH=/app/config/aoi.geojson
       - DATA_DIR=/app/data
