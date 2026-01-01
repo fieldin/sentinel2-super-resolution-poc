@@ -1,0 +1,142 @@
+<div class="map-wrapper">
+  <!-- Map Container -->
+  <div #mapContainer class="map-container"></div>
+
+  <!-- Loading Overlay -->
+  @if (loading()) {
+    <div class="loading-overlay">
+      <div class="loader">
+        <div class="loader-ring"></div>
+        <span>Loading map...</span>
+      </div>
+    </div>
+  }
+
+  <!-- Error Message -->
+  @if (error()) {
+    <div class="error-banner">
+      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"></circle>
+        <line x1="12" y1="8" x2="12" y2="12"></line>
+        <line x1="12" y1="16" x2="12.01" y2="16"></line>
+      </svg>
+      <span>{{ error() }}</span>
+    </div>
+  }
+
+  <!-- Control Panel -->
+  <div class="control-panel">
+    <div class="panel-header">
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+          <path d="M2 12h20"></path>
+        </svg>
+        <h1>Sentinel-2 Viewer</h1>
+      </div>
+      <span class="badge">POC</span>
+    </div>
+
+    <!-- Status -->
+    <div class="status-section">
+      @if (tilesAvailable()) {
+        <div class="status status--ready">
+          <div class="status-dot"></div>
+          <span>Tiles loaded</span>
+        </div>
+      } @else {
+        <div class="status status--warning">
+          <div class="status-dot"></div>
+          <span>No tiles available</span>
+        </div>
+      }
+    </div>
+
+    <!-- Opacity Control -->
+    <div class="control-group">
+      <label class="control-label">
+        <span>Layer Opacity</span>
+        <span class="control-value">{{ opacity() }}%</span>
+      </label>
+      <input
+        type="range"
+        class="slider"
+        [value]="opacity()"
+        (input)="onOpacityChange($any($event.target).value)"
+        min="0"
+        max="100"
+        step="5"
+      >
+    </div>
+
+    <!-- Zoom Display -->
+    <div class="control-group">
+      <label class="control-label">
+        <span>Current Zoom</span>
+        <span class="control-value mono">{{ currentZoom() }}</span>
+      </label>
+    </div>
+
+    <!-- Scene Info -->
+    @if (sourceInfo()) {
+      <div class="info-section">
+        <h3>Scene Information</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Scene ID</span>
+            <span class="info-value mono">{{ sourceInfo()!.scene_id | slice:0:20 }}...</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Acquisition</span>
+            <span class="info-value">{{ formattedAcquisitionDate() }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Cloud Cover</span>
+            <span class="info-value">{{ sourceInfo()!.cloud_cover_pct }}%</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">File Size</span>
+            <span class="info-value">{{ sourceInfo()!.file_size_mb | number:'1.1-1' }} MB</span>
+          </div>
+        </div>
+        
+        @if (sourceInfo()!.is_mock) {
+          <div class="mock-warning">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span>Mock data - configure UP42 credentials</span>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Actions -->
+    <div class="action-buttons">
+      <button class="btn btn--secondary" (click)="zoomToExtent()" [disabled]="!tilesAvailable()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 3h6v6"></path>
+          <path d="M9 21H3v-6"></path>
+          <path d="M21 3l-7 7"></path>
+          <path d="M3 21l7-7"></path>
+        </svg>
+        Zoom to Extent
+      </button>
+      <button class="btn btn--primary" (click)="refreshData()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"></path>
+        </svg>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Attribution -->
+  <div class="attribution">
+    Sentinel-2 SR via UP42 • Mapbox
+  </div>
+</div>
+

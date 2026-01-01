@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - UP42_USERNAME=${UP42_USERNAME}
+      - UP42_PASSWORD=${UP42_PASSWORD}
+      - UP42_PROJECT_ID=${UP42_PROJECT_ID:-}
+      - DAYS_LOOKBACK=${DAYS_LOOKBACK:-30}
+      - MAX_CLOUD_PCT=${MAX_CLOUD_PCT:-10}
+      - TILE_MIN_ZOOM=${TILE_MIN_ZOOM:-10}
+      - TILE_MAX_ZOOM=${TILE_MAX_ZOOM:-16}
+      - MAPBOX_ACCESS_TOKEN=${MAPBOX_ACCESS_TOKEN}
+      - AOI_PATH=/app/config/aoi.geojson
+      - DATA_DIR=/app/data
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/app/data
+      - ./client/dist/sentinel-map:/app/static:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Angular client build stage (optional - for development)
+  client-build:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./client:/app
+    command: sh -c "npm ci && npm run build"
+    profiles:
+      - build
+

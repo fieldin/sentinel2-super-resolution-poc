@@ -1,0 +1,42 @@
+{
+  "scene_id": "S2B_10SFF_20251229_0_L2A",
+  "acquisition_date": "2025-12-29T19:04:19.751000Z",
+  "cloud_cover_pct": 0.983402,
+  "platform": "sentinel-2b",
+  "processing_level": "L2A (Surface Reflectance)",
+  "collection": "sentinel-2-l2a",
+  "stac_url": "https://earth-search.aws.element84.com/v1",
+  "aoi_geometry": {
+    "coordinates": [
+      [
+        [
+          -121.48747403656147,
+          36.837800966225316
+        ],
+        [
+          -121.48639763669271,
+          36.837780454756725
+        ],
+        [
+          -121.48639763669271,
+          36.83403701967988
+        ],
+        [
+          -121.48743559370904,
+          36.83401650720191
+        ],
+        [
+          -121.48745539445089,
+          36.8342554235377
+        ],
+        [
+          -121.48747403656147,
+          36.837800966225316
+        ]
+      ]
+    ],
+    "type": "Polygon"
+  },
+  "output_file": "/app/data/sentinel2_download/sentinel2_sr_20251229_10SFF.tif",
+  "downloaded_at": "2025-12-31T20:59:44.656885Z"
+}

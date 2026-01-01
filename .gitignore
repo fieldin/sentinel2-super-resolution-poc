@@ -1,0 +1,40 @@
+# Environment
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+.venv/
+
+# Data (runtime outputs)
+data/source/
+data/tiles/
+data/tiles_sr/
+data/sr/
+data/multitemporal/
+data/cnn_sr/
+*.tif
+*.png
+
+# Models (downloaded at runtime)
+models/
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db

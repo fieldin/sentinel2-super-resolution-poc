@@ -1,0 +1,19 @@
+{
+  "timestamp": "20260101_083822",
+  "scenes_collected": 10,
+  "scenes_used": 9,
+  "fusion_method": "weighted_temporal_fusion",
+  "sr_scale": 2,
+  "fused_path": "/app/data/skycues_full/fused_20260101_083822.tif",
+  "sr_path": "/app/data/skycues_full/sr_x2_20260101_083822.tif",
+  "fused_size": [
+    792,
+    594
+  ],
+  "sr_size": [
+    1584,
+    1188
+  ],
+  "original_resolution_m": 10.0,
+  "final_resolution_m": 5.0
+}

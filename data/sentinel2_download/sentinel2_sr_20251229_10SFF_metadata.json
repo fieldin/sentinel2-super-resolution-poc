@@ -1,0 +1,17 @@
+{
+  "scene_id": "S2B_10SFF_20251229_0_L2A",
+  "acquisition_date": "2025-12-29T19:04:19.751000Z",
+  "cloud_cover_pct": 0.983402,
+  "platform": "sentinel-2b",
+  "processing_level": "L2A (Surface Reflectance)",
+  "source": "AWS Earth Search",
+  "downloaded_at": "2025-12-31T21:17:09.225513Z",
+  "files": {
+    "visual": "/app/data/sentinel2_download/sentinel2_sr_20251229_10SFF_visual.tif",
+    "scl": "/app/data/sentinel2_download/sentinel2_sr_20251229_10SFF_scl.tif",
+    "red": "/app/data/sentinel2_download/sentinel2_sr_20251229_10SFF_red.tif",
+    "green": "/app/data/sentinel2_download/sentinel2_sr_20251229_10SFF_green.tif",
+    "blue": "/app/data/sentinel2_download/sentinel2_sr_20251229_10SFF_blue.tif",
+    "nir": "/app/data/sentinel2_download/sentinel2_sr_20251229_10SFF_nir.tif"
+  }
+}

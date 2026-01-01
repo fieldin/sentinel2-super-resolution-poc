@@ -1,0 +1,14 @@
+{
+  "bounds": [
+    -121.5791967,
+    36.8406857,
+    -121.4512841,
+    36.8795496
+  ],
+  "minzoom": 10,
+  "maxzoom": 18,
+  "tileTemplate": "/tiles/{z}/{x}/{y}.png",
+  "attribution": "Sentinel-2 SR via UP42",
+  "format": "png",
+  "tileSize": 256
+}

@@ -1,0 +1,5 @@
+# Requirements for fetch_sentinel2_sr.py
+pystac-client>=0.7.0
+shapely>=2.0.0
+requests>=2.28.0
+
