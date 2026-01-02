@@ -122,6 +122,7 @@ class RRDBNet(nn.Module):
         )
         self.conv_body = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
 
+        # Upsampling layers - both defined but conditionally used
         self.conv_up1 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
         self.conv_up2 = nn.Conv2d(num_feat, num_feat, 3, 1, 1)
 
@@ -135,12 +136,16 @@ class RRDBNet(nn.Module):
         body_feat = self.conv_body(self.body(feat))
         feat = feat + body_feat
 
+        # First upsample (always done for both x2 and x4)
         feat = self.lrelu(
             self.conv_up1(F.interpolate(feat, scale_factor=2, mode="nearest"))
         )
-        feat = self.lrelu(
-            self.conv_up2(F.interpolate(feat, scale_factor=2, mode="nearest"))
-        )
+        
+        # Second upsample (only for x4)
+        if self.scale == 4:
+            feat = self.lrelu(
+                self.conv_up2(F.interpolate(feat, scale_factor=2, mode="nearest"))
+            )
 
         feat = self.lrelu(self.conv_hr(feat))
         out = self.conv_last(feat)

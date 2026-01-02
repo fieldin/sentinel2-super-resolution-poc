@@ -26,3 +26,8 @@ scipy>=1.10.0
 # opencv-contrib-python includes dnn_superres module
 opencv-contrib-python>=4.8.0
 
+# PyTorch for Real-ESRGAN and SwinIR
+# Use CPU version by default - for GPU use torch with CUDA
+torch>=2.0.0
+torchvision>=0.15.0
+

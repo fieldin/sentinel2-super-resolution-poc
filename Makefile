@@ -2,31 +2,40 @@
 # ============================================
 # One-click commands for building and running the POC
 
-.PHONY: help up down fetch tile sr sr-tile clean poc poc-sr poc-clean build-client logs shell check-env
+.PHONY: help up down fetch tile sr sr-tile clean poc poc-sr poc-clean build-client logs shell check-env pipeline pipeline-status
 
 # Default target
 help:
 	@echo "Sentinel-2 Super-Resolution POC"
 	@echo "================================"
 	@echo ""
-	@echo "Quick Start:"
+	@echo "🚀 Quick Start:"
+	@echo "  make pipeline     - ONE API: Fetch → Tiles → SR → SR Tiles (NEW!)"
 	@echo "  make poc          - One-click: fetch → tile → up"
 	@echo "  make poc-sr       - Full SR POC: fetch → sr → tile → up"
 	@echo "  make poc-clean    - Clean restart"
 	@echo ""
-	@echo "Super-Resolution:"
+	@echo "📡 Full Pipeline API:"
+	@echo "  make pipeline           - Run complete pipeline via API"
+	@echo "  make pipeline-fast      - Pipeline without SR (quick tiles only)"
+	@echo "  make pipeline-status    - Check pipeline job status"
+	@echo ""
+	@echo "🎨 Super-Resolution:"
 	@echo "  make sr           - Apply AI Super-Resolution (x4 = 2.5m)"
 	@echo "  make sr-x2        - Super-Resolution x2 (5m effective)"
 	@echo "  make sr-tile      - Generate tiles from SR image"
+	@echo "  make wow          - WOW SR with auto-fetch (best for z18!) 🌟"
+	@echo "  make wow-file     - WOW SR on specific file"
+	@echo "  make smart-fetch  - Auto-get best image (last 30d, cloud ≤30%)"
 	@echo ""
-	@echo "Individual Commands:"
+	@echo "⚙️ Individual Commands:"
 	@echo "  make up           - Start all services"
 	@echo "  make down         - Stop all services"
 	@echo "  make fetch        - Fetch Sentinel-2 imagery"
 	@echo "  make tile         - Generate XYZ tiles"
 	@echo "  make clean        - Remove all data files"
 	@echo ""
-	@echo "Development:"
+	@echo "🛠️ Development:"
 	@echo "  make build-client - Build Angular client"
 	@echo "  make logs         - View container logs"
 	@echo "  make shell        - Open shell in server container"
@@ -34,7 +43,7 @@ help:
 	@echo "Setup:"
 	@echo "  1. Copy .env.example to .env"
 	@echo "  2. Fill in UP42 and Mapbox credentials"
-	@echo "  3. Run 'make poc' or 'make poc-sr'"
+	@echo "  3. Run 'make pipeline' (recommended) or 'make poc'"
 	@echo ""
 
 # Build and start containers
@@ -87,6 +96,36 @@ sr-x2:
 		docker compose run --rm server python -m app.sr_cli --scale 2; \
 	fi
 
+# Smart Fetch: Get best image (latest + clearest from last 30 days)
+smart-fetch:
+	@echo "Smart Fetch: Finding best Sentinel-2 image..."
+	@echo "(Last 30 days, cloud ≤30%, fetches from UP42 only if needed)"
+	@if docker compose ps -q server > /dev/null 2>&1 && docker compose ps | grep -q "Up"; then \
+		docker compose exec server python -m app.smart_fetch; \
+	else \
+		docker compose run --rm server python -m app.smart_fetch; \
+	fi
+
+# WOW Super-Resolution: SwinIR x2 → Real-ESRGAN x2 (best for z18)
+# Automatically fetches best image if needed!
+wow:
+	@echo "WOW Super-Resolution (SwinIR x2 → Real-ESRGAN x2)..."
+	@echo "Auto-fetches best image (last 30 days, cloud ≤30%)"
+	@echo "This provides superior quality at z18!"
+	@curl -s -X POST http://localhost:8080/api/wow \
+		-H "Content-Type: application/json" \
+		-d '{"auto_fetch": true, "max_age_days": 30, "max_cloud_cover": 30}' | jq .
+
+# WOW with specific file
+wow-file:
+	@echo "Usage: make wow-file FILE=data/source/your_image.tif"
+	@if [ -z "$(FILE)" ]; then echo "Error: FILE not specified"; exit 1; fi
+	@if docker compose ps -q server > /dev/null 2>&1 && docker compose ps | grep -q "Up"; then \
+		docker compose exec server python -m app.wow_sr $(FILE) -o data/wow; \
+	else \
+		docker compose run --rm server python -m app.wow_sr $(FILE) -o data/wow; \
+	fi
+
 # Generate tiles from SR image
 sr-tile:
 	@echo "Generating tiles from SR image..."
@@ -102,7 +141,9 @@ clean:
 	rm -rf ./data/source/*
 	rm -rf ./data/tiles/*
 	rm -rf ./data/tiles_sr/*
+	rm -rf ./data/tiles_wow/*
 	rm -rf ./data/sr/*
+	rm -rf ./data/wow/*
 	@echo "Data cleaned."
 
 # One-click POC: fetch imagery, generate tiles, start server
@@ -231,3 +272,68 @@ logs:
 # Open shell in server container
 shell:
 	docker compose exec server /bin/bash
+
+# ============================================================
+# FULL PIPELINE API
+# ============================================================
+
+# Run complete pipeline: Fetch → Tiles → WOW SR → SR Tiles
+pipeline:
+	@echo "============================================"
+	@echo "🚀 Running Full Pipeline via API"
+	@echo "============================================"
+	@echo ""
+	@echo "Pipeline: Fetch → Tiles → WOW SR → SR Tiles"
+	@echo ""
+	@curl -s -X POST http://localhost:8080/api/pipeline \
+		-H "Content-Type: application/json" \
+		-d '{"max_age_days": 30, "max_cloud_cover": 30, "sr_type": "wow", "enhance_crops": true}' | jq .
+	@echo ""
+	@echo "Monitor progress: make pipeline-status JOB=<job_id>"
+
+# Pipeline without SR (quick tiles only)
+pipeline-fast:
+	@echo "🚀 Running Fast Pipeline (no SR)..."
+	@curl -s -X POST http://localhost:8080/api/pipeline \
+		-H "Content-Type: application/json" \
+		-d '{"run_sr": false}' | jq .
+
+# Pipeline with Farm SR instead of WOW
+pipeline-farm:
+	@echo "🚀 Running Pipeline with Farm SR..."
+	@curl -s -X POST http://localhost:8080/api/pipeline \
+		-H "Content-Type: application/json" \
+		-d '{"sr_type": "farm"}' | jq .
+
+# Check pipeline status
+pipeline-status:
+	@if [ -z "$(JOB)" ]; then \
+		echo "Listing all pipeline jobs..."; \
+		curl -s http://localhost:8080/api/pipelines | jq .; \
+	else \
+		echo "Status for job: $(JOB)"; \
+		curl -s http://localhost:8080/api/pipeline/$(JOB) | jq .; \
+	fi
+
+# Watch pipeline progress (polls every 5 seconds)
+pipeline-watch:
+	@if [ -z "$(JOB)" ]; then \
+		echo "Error: JOB not specified. Usage: make pipeline-watch JOB=pipeline_20260102_123456"; \
+		exit 1; \
+	fi
+	@echo "Watching pipeline job: $(JOB)"
+	@echo "Press Ctrl+C to stop"
+	@echo ""
+	@while true; do \
+		clear; \
+		echo "Pipeline: $(JOB)"; \
+		echo "==========================================="; \
+		curl -s http://localhost:8080/api/pipeline/$(JOB) | jq '{status, current_step, message, steps: [.steps[]? | {step, name, status, message}]}'; \
+		STATUS=$$(curl -s http://localhost:8080/api/pipeline/$(JOB) | jq -r '.status'); \
+		if [ "$$STATUS" = "completed" ] || [ "$$STATUS" = "failed" ]; then \
+			echo ""; \
+			echo "Pipeline $$STATUS!"; \
+			break; \
+		fi; \
+		sleep 5; \
+	done

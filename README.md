@@ -1,45 +1,41 @@
-# UP42 Sentinel-2 POC
+# 🛰️ Sentinel-2 Super-Resolution POC
 
-A complete proof-of-concept for fetching, processing, and visualizing Sentinel-2 Surface Reflectance imagery using UP42, GDAL, and Mapbox GL JS.
+AI-powered super-resolution for Sentinel-2 satellite imagery with automated fetching, tile generation, and web visualization.
 
-![Architecture](https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square)
-![Architecture](https://img.shields.io/badge/Frontend-Angular%2018-DD0031?style=flat-square)
-![Architecture](https://img.shields.io/badge/Mapping-Mapbox%20GL-4264FB?style=flat-square)
-![Architecture](https://img.shields.io/badge/Tiling-GDAL-5CAE58?style=flat-square)
+![Python](https://img.shields.io/badge/Python-3.11-blue)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green)
+![Docker](https://img.shields.io/badge/Docker-Compose-blue)
+![Real-ESRGAN](https://img.shields.io/badge/AI-Real--ESRGAN-purple)
 
-## 🎯 Features
+## ✨ Features
 
-- **Automated Imagery Fetch**: Search UP42 catalog for cloud-free Sentinel-2 L2A scenes
-- **Smart Scene Selection**: Automatically selects best scene by cloud cover and date
-- **XYZ Tile Generation**: GDAL-powered tile generation for web display
-- **Interactive Map Viewer**: Angular + Mapbox GL JS with opacity controls
-- **One-Click Deployment**: Docker Compose + Makefile orchestration
+- **🔍 Smart Fetch**: Automatically finds the best Sentinel-2 image (lowest cloud cover, most recent)
+- **🎨 AI Super-Resolution**: Real-ESRGAN x4 upscaling (10m → 2.5m effective resolution)
+- **🌾 Crop Optimization**: Enhanced post-processing for agricultural imagery visibility
+- **🗺️ XYZ Tiles**: Automatic tile generation for web mapping
+- **🚀 One-Click Pipeline**: Fetch → Tiles → SR → SR Tiles in a single API call
+- **🌐 Web Viewer**: Built-in Mapbox GL viewer for visualization
 
-## 📁 Project Structure
+## 🏗️ Architecture
 
 ```
-up42-sentinel-poc/
-├── server/
-│   └── app/
-│       ├── main.py           # FastAPI server
-│       ├── settings.py       # Pydantic config
-│       ├── up42_client.py    # UP42 API client
-│       ├── fetch.py          # CLI: fetch imagery
-│       ├── tile.py           # CLI: generate tiles
-│       ├── tiling.py         # GDAL helpers
-│       └── utils.py          # Logging, retries
-├── client/                   # Angular application
-│   └── src/app/
-│       ├── map/              # Map component
-│       └── services/         # Config & metadata services
-├── config/
-│   └── aoi.geojson          # Area of Interest
-├── data/                     # Runtime outputs
-│   ├── source/              # Downloaded GeoTIFFs
-│   └── tiles/               # Generated XYZ tiles
-├── docker-compose.yml
-├── Makefile
-└── .env.example
+┌─────────────────────────────────────────────────────────────┐
+│                      Pipeline API                           │
+│                   POST /api/pipeline                        │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+┌───────────┐  ┌───────────┐  ┌───────────┐
+│  Smart    │  │   Tile    │  │  WOW SR   │
+│  Fetch    │  │ Generator │  │ (ESRGAN)  │
+└─────┬─────┘  └─────┬─────┘  └─────┬─────┘
+      │              │              │
+      ▼              ▼              ▼
+┌───────────┐  ┌───────────┐  ┌───────────┐
+│ Sentinel-2│  │  /tiles/  │  │/tiles_sr/ │
+│  GeoTIFF  │  │  z/x/y    │  │  z/x/y    │
+└───────────┘  └───────────┘  └───────────┘
 ```
 
 ## 🚀 Quick Start
@@ -47,201 +43,179 @@ up42-sentinel-poc/
 ### Prerequisites
 
 - Docker & Docker Compose
-- UP42 account with API credentials
-- Mapbox account with access token
+- Mapbox Access Token (for web viewer)
 
 ### Setup
 
-1. **Clone and configure**:
+1. **Clone and configure:**
    ```bash
    cd up42-sentinel-poc
    cp .env.example .env
+   # Edit .env with your credentials
    ```
 
-2. **Edit `.env`** with your credentials:
+2. **Start the server:**
    ```bash
-   # UP42 Credentials (from console.up42.com > Project Settings > Developers)
-   UP42_CLIENT_ID=your-client-id
-   UP42_CLIENT_SECRET=your-client-secret
-   UP42_PROJECT_ID=d73248f1-b99a-4466-b319-e0c923d5304d  # Your account ID
-   
-   # Mapbox Token (from account.mapbox.com)
-   MAPBOX_ACCESS_TOKEN=pk.your-mapbox-token
+   make up
    ```
 
-3. **Configure AOI** (optional):
-   Edit `config/aoi.geojson` with your target area polygon (EPSG:4326)
+3. **Run the full pipeline:**
+   ```bash
+   make pipeline
+   ```
 
-### One-Click POC
+4. **Open the viewer:**
+   ```
+   http://localhost:8080
+   ```
+
+## 📡 API Endpoints
+
+### Full Pipeline (Recommended)
 
 ```bash
-make poc
+# Run complete flow: Fetch → Tiles → SR → SR Tiles
+curl -X POST http://localhost:8080/api/pipeline \
+  -H "Content-Type: application/json" \
+  -d '{
+    "max_age_days": 30,
+    "max_cloud_cover": 30,
+    "sr_type": "wow",
+    "enhance_crops": true
+  }'
+
+# Check status
+curl http://localhost:8080/api/pipeline/{job_id}
+
+# List all jobs
+curl http://localhost:8080/api/pipelines
 ```
 
-This will:
-1. Fetch Sentinel-2 imagery from UP42
-2. Generate XYZ tiles with GDAL
-3. Start the server at http://localhost:8080
+### Individual Endpoints
 
-### Manual Steps
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/pipeline` | POST | Full pipeline (fetch + tiles + SR) |
+| `/api/wow` | POST | WOW SR only (Real-ESRGAN x4 + Enhanced) |
+| `/api/sr` | POST | Standard SR (EDSR/Farm SR) |
+| `/api/metadata` | GET | Tileset and source metadata |
+| `/tiles/{z}/{x}/{y}.png` | GET | Original tiles |
+| `/tiles_sr/{z}/{x}/{y}.png` | GET | SR tiles |
+| `/tiles_wow/{z}/{x}/{y}.png` | GET | WOW SR tiles |
+| `/docs` | GET | Swagger API documentation |
+
+## 🎯 Make Commands
 
 ```bash
-# Start containers
-make up
+# Quick Start
+make up              # Start server
+make pipeline        # Run full pipeline via API
+make pipeline-fast   # Tiles only (no SR)
 
-# Fetch imagery (runs in container)
-make fetch
+# Super-Resolution
+make wow             # WOW SR with auto-fetch
+make sr              # Standard SR (x4)
 
-# Generate tiles (runs in container)
-make tile
+# Utilities
+make logs            # View container logs
+make shell           # Open container shell
+make clean           # Remove all data
 
-# View logs
-make logs
+# Status
+make pipeline-status JOB=pipeline_20260102_123456
 ```
 
 ## 🔧 Configuration
 
-### Environment Variables
+### Environment Variables (.env)
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `UP42_CLIENT_ID` | required | UP42 OAuth2 Client ID |
-| `UP42_CLIENT_SECRET` | required | UP42 OAuth2 Client Secret |
-| `UP42_PROJECT_ID` | required | UP42 Project/Account ID |
-| `DAYS_LOOKBACK` | `30` | Days to search back for imagery |
-| `MAX_CLOUD_PCT` | `10` | Maximum cloud coverage % |
-| `TILE_MIN_ZOOM` | `10` | Minimum tile zoom level |
-| `TILE_MAX_ZOOM` | `16` | Maximum tile zoom level |
-| `MAPBOX_ACCESS_TOKEN` | required | Mapbox GL JS access token |
+```env
+# Mapbox (required for web viewer)
+MAPBOX_ACCESS_TOKEN=pk.xxx
 
-### AOI Configuration
+# UP42 (optional, for fetching new imagery)
+UP42_PROJECT_ID=xxx
+UP42_PROJECT_API_KEY=xxx
 
-Edit `config/aoi.geojson` with a GeoJSON Polygon:
+# Tile settings
+TILE_MIN_ZOOM=10
+TILE_MAX_ZOOM=16
+```
+
+### Pipeline Options
 
 ```json
 {
-  "type": "Feature",
-  "properties": { "name": "My Farm" },
-  "geometry": {
-    "type": "Polygon",
-    "coordinates": [[
-      [-121.68, 36.62],
-      [-121.60, 36.62],
-      [-121.60, 36.68],
-      [-121.68, 36.68],
-      [-121.68, 36.62]
-    ]]
-  }
+  "max_age_days": 30,           // How far back to search for images
+  "max_cloud_cover": 30.0,      // Maximum cloud cover %
+  "force_fetch": false,         // Force remote fetch
+  "generate_original_tiles": true,
+  "min_zoom": 10,
+  "max_zoom": 16,
+  "run_sr": true,               // Run super-resolution
+  "sr_type": "wow",             // "wow" or "farm"
+  "enhance_crops": true         // CLAHE + unsharp mask
 }
 ```
 
-## 📡 API Endpoints
+## 🎨 Super-Resolution Pipeline
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/api/config` | GET | Client config (Mapbox token, zoom defaults) |
-| `/api/metadata` | GET | Tileset + source metadata |
-| `/tiles/{z}/{x}/{y}.png` | GET | XYZ raster tiles |
-
-## 🗺️ Angular Client
-
-The Angular client provides:
-
-- **Map Display**: Mapbox GL JS with dark theme
-- **Raster Overlay**: Sentinel-2 tiles with opacity control
-- **Scene Info**: Acquisition date, cloud cover, file size
-- **Zoom Controls**: Current zoom display, zoom-to-extent
-
-### Development
-
-```bash
-cd client
-npm install
-npm start  # Runs on localhost:4200 with proxy to backend
-```
-
-## 🐛 Troubleshooting
-
-### Authentication Errors
+### WOW SR (Recommended for z18)
 
 ```
-Error: 401 Unauthorized
+Input (10m) → Real-ESRGAN x4 → Post-Processing → Output (2.5m)
+                    │
+                    ├── CLAHE (local contrast)
+                    ├── Unsharp mask (edge sharpening)
+                    └── Vegetation boost (green enhancement)
 ```
 
-- Verify `UP42_CLIENT_ID` and `UP42_CLIENT_SECRET` in `.env`
-- Ensure credentials have catalog access permissions
-- Check if credentials are for the correct environment (production vs sandbox)
+**Optimized for:**
+- Agricultural/crop imagery
+- High zoom levels (z18)
+- Crop row visibility
 
-### No Scenes Found
+## 📊 Resolution Comparison
 
-```
-Error: No scenes found within 30 days with cloud cover <= 10%
-```
+| Source | Native Resolution | After SR | Zoom Level |
+|--------|------------------|----------|------------|
+| Sentinel-2 | 10m | 2.5m (x4) | z15-18 |
+| Output Tiles | - | 256px | z10-18 |
 
-- Increase `DAYS_LOOKBACK` (e.g., 60 or 90)
-- Increase `MAX_CLOUD_PCT` (e.g., 20 or 30)
-- Verify AOI coordinates are correct (should be in EPSG:4326)
-
-### GDAL Errors
+## 📁 Project Structure
 
 ```
-Error: gdal2tiles.py failed
+up42-sentinel-poc/
+├── server/
+│   ├── app/
+│   │   ├── main.py           # FastAPI application
+│   │   ├── wow_sr.py         # WOW super-resolution
+│   │   ├── smart_fetch.py    # Image fetching logic
+│   │   ├── tiling.py         # Tile generation
+│   │   └── cnn_super_resolution.py  # Real-ESRGAN
+│   ├── Dockerfile
+│   └── requirements.txt
+├── data/
+│   ├── source/               # Downloaded GeoTIFFs
+│   ├── tiles/                # Original tiles
+│   ├── tiles_sr/             # SR tiles
+│   └── tiles_wow/            # WOW SR tiles
+├── docker-compose.yml
+├── Makefile
+└── README.md
 ```
 
-- Check that the source GeoTIFF exists in `data/source/`
-- Verify the file is not corrupted: `gdalinfo data/source/*.tif`
-- Ensure sufficient disk space for tile generation
+## 🔗 Data Sources
 
-### Tiles Not Loading
+- **Sentinel-2**: AWS Earth Search STAC (free, public)
+- **Fallback**: UP42 API (requires credentials)
 
-- Check browser console for 404 errors
-- Verify tiles exist: `ls data/tiles/`
-- Check `data/tiles/tileset.json` has correct bounds
-- Ensure Mapbox token is valid
-
-### Mock Data Mode
-
-If UP42 credentials are not configured, the system uses a mock client that generates placeholder data. You'll see:
-
-```
-UP42 credentials not configured - using mock client
-```
-
-This is useful for testing the tile generation and UI without UP42 access.
-
-## 📦 Makefile Commands
-
-| Command | Description |
-|---------|-------------|
-| `make poc` | One-click: fetch → tile → up |
-| `make poc-clean` | Clean restart: down → clean → poc |
-| `make up` | Start containers |
-| `make down` | Stop containers |
-| `make fetch` | Run fetch pipeline |
-| `make tile` | Run tile generation |
-| `make clean` | Remove data files |
-| `make logs` | View container logs |
-| `make shell` | Shell into server container |
-
-## 🔒 Security Notes
-
-- Never commit `.env` files with real credentials
-- The `/api/config` endpoint exposes the Mapbox token (POC only)
-- For production, implement proper token management
-
-## 📝 TODOs
-
-The UP42 client includes several `TODO` comments marking areas that may need adjustment based on actual API responses:
-
-- Collection ID for Sentinel-2 L2A catalog search
-- Order creation payload structure
-- Asset download URL extraction
-- Order status polling
-
-These are implemented with best-guess defaults and should work, but may need tweaking based on your specific UP42 project configuration.
-
-## 📄 License
+## 📝 License
 
 MIT License - See LICENSE file for details.
 
+## 🙏 Credits
+
+- [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) - AI Super-Resolution
+- [Sentinel-2](https://sentinel.esa.int/web/sentinel/missions/sentinel-2) - Satellite Imagery
+- [Mapbox GL JS](https://docs.mapbox.com/mapbox-gl-js/) - Web Mapping
