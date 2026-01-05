@@ -21,7 +21,7 @@ services:
     volumes:
       - ./config:/app/config:ro
       - ./data:/app/data
-      - ./client/dist/sentinel-map:/app/static:ro
+      - ./client/dist/sentinel-map/browser:/app/static:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 30s

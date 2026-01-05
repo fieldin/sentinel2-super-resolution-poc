@@ -15,6 +15,7 @@ AI-powered super-resolution for Sentinel-2 satellite imagery with automated fetc
 - **🗺️ XYZ Tiles**: Automatic tile generation for web mapping
 - **🚀 One-Click Pipeline**: Fetch → Tiles → SR → SR Tiles in a single API call
 - **🌐 Web Viewer**: Built-in Mapbox GL viewer for visualization
+- **🗺️ Vector Intelligence**: Extract crisp field boundary polygons for high-zoom visualization (NEW!)
 
 ## 🏗️ Architecture
 
@@ -111,10 +112,16 @@ curl http://localhost:8080/api/pipelines
 make up              # Start server
 make pipeline        # Run full pipeline via API
 make pipeline-fast   # Tiles only (no SR)
+make pipeline-full   # Pipeline + vector extraction
 
 # Super-Resolution
 make wow             # WOW SR with auto-fetch
 make sr              # Standard SR (x4)
+
+# Vector Intelligence
+make vectors         # Extract field boundary polygons
+make vectors-api     # Extract via API (background)
+make vectors-status  # Check vector extraction status
 
 # Utilities
 make logs            # View container logs
@@ -123,6 +130,7 @@ make clean           # Remove all data
 
 # Status
 make pipeline-status JOB=pipeline_20260102_123456
+make vectors-status JOB=vectors_20260102_123456
 ```
 
 ## 🔧 Configuration
@@ -175,6 +183,116 @@ Input (10m) → Real-ESRGAN x4 → Post-Processing → Output (2.5m)
 - High zoom levels (z18)
 - Crop row visibility
 
+## 🗺️ Vector Intelligence
+
+**NEW!** Extract crisp field boundary polygons for a Skycuse-like high-zoom experience.
+
+### Why Vectors?
+
+At zoom levels 18-20, raster imagery (even super-resolved) starts to show pixelation. Vector overlays provide:
+- **Crisp boundaries** that scale perfectly at any zoom
+- **Semantic information** (field IDs, areas, confidence scores)
+- **Interactive features** (hover highlights, popups)
+- **Better visual hierarchy** when raster fades slightly
+
+### How It Works
+
+```
+Raster Input → Vegetation Mask → Segmentation → Polygons → GeoJSON
+      │               │               │              │
+      ├── SR output   ├── NDVI        ├── Watershed  ├── Simplify
+      └── Original    └── HSV color   └── Morph ops  └── Clean topology
+```
+
+**Key features:**
+- Processes entire AOI at once (no tile-breaking)
+- Uses NDVI when spectral bands available
+- Falls back to HSV color analysis for RGB images
+- Topology cleanup (buffer(0), sliver removal, simplification)
+- Confidence scoring based on shape and source
+
+### Quick Start
+
+```bash
+# After running the pipeline:
+make vectors
+
+# Or via API:
+curl -X POST http://localhost:8080/api/vectors -H "Content-Type: application/json"
+
+# Check status:
+make vectors-status
+```
+
+### Vector API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/vectors/fields.geojson` | GET | Serve field polygons as GeoJSON |
+| `/api/vectors` | POST | Start vector extraction |
+| `/api/vectors/{job_id}` | GET | Check extraction status |
+| `/api/vectors/metadata` | GET | Get vector layer metadata |
+
+### Frontend Features
+
+- **Toggle control**: Show/hide field boundaries
+- **Zoom-dependent styling**:
+  - Lines thicken at higher zoom (1px → 4px)
+  - Subtle fill appears at z17+
+  - Raster fades slightly at z18+ to let vectors dominate
+- **Hover interaction**: Highlight field + popup with area, confidence
+- **Smooth animations**: Transition effects on hover
+
+### Configuration Options
+
+```bash
+# Custom extraction parameters
+python -m app.generate_vectors \
+  --aoi config/aoi.geojson \
+  --ndvi-threshold 0.25 \
+  --min-area 0.5 \
+  --max-area 200 \
+  --simplify 3.0 \
+  --out data/vectors
+```
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--ndvi-threshold` | 0.3 | NDVI threshold for vegetation |
+| `--min-area` | 0.1 | Minimum field area (hectares) |
+| `--max-area` | 500 | Maximum field area (hectares) |
+| `--simplify` | 5.0 | Simplification tolerance (meters) |
+
+### Output Format
+
+The output GeoJSON (`data/vectors/fields.geojson`) contains:
+
+```json
+{
+  "type": "FeatureCollection",
+  "properties": {
+    "generated_at": "2026-01-04T...",
+    "source_method": "ndvi",
+    "feature_count": 42
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "id": "abc123def456",
+      "properties": {
+        "id": "abc123def456",
+        "field_index": 1,
+        "area_ha": 12.5,
+        "source": "ndvi",
+        "confidence": 0.85,
+        "created_at": "2026-01-04T..."
+      },
+      "geometry": { "type": "Polygon", "coordinates": [...] }
+    }
+  ]
+}
+```
+
 ## 📊 Resolution Comparison
 
 | Source | Native Resolution | After SR | Zoom Level |
@@ -188,18 +306,28 @@ Input (10m) → Real-ESRGAN x4 → Post-Processing → Output (2.5m)
 up42-sentinel-poc/
 ├── server/
 │   ├── app/
-│   │   ├── main.py           # FastAPI application
-│   │   ├── wow_sr.py         # WOW super-resolution
-│   │   ├── smart_fetch.py    # Image fetching logic
-│   │   ├── tiling.py         # Tile generation
-│   │   └── cnn_super_resolution.py  # Real-ESRGAN
+│   │   ├── main.py              # FastAPI application
+│   │   ├── wow_sr.py            # WOW super-resolution
+│   │   ├── smart_fetch.py       # Image fetching logic
+│   │   ├── tiling.py            # Tile generation
+│   │   ├── cnn_super_resolution.py  # Real-ESRGAN
+│   │   ├── vector_extraction.py # Field polygon extraction (NEW!)
+│   │   └── generate_vectors.py  # Vector CLI command (NEW!)
 │   ├── Dockerfile
 │   └── requirements.txt
+├── client/
+│   └── src/
+│       └── app/
+│           └── map/             # Mapbox GL map component
+├── config/
+│   └── aoi.geojson             # Area of interest definition
 ├── data/
-│   ├── source/               # Downloaded GeoTIFFs
-│   ├── tiles/                # Original tiles
-│   ├── tiles_sr/             # SR tiles
-│   └── tiles_wow/            # WOW SR tiles
+│   ├── source/                 # Downloaded GeoTIFFs
+│   ├── tiles/                  # Original tiles
+│   ├── tiles_sr/               # SR tiles
+│   ├── tiles_wow/              # WOW SR tiles
+│   └── vectors/                # Field boundary vectors (NEW!)
+│       └── fields.geojson
 ├── docker-compose.yml
 ├── Makefile
 └── README.md

@@ -2,7 +2,7 @@
 # ============================================
 # One-click commands for building and running the POC
 
-.PHONY: help up down fetch tile sr sr-tile clean poc poc-sr poc-clean build-client logs shell check-env pipeline pipeline-status
+.PHONY: help up down fetch tile sr sr-tile clean poc poc-sr poc-clean build-client logs shell check-env pipeline pipeline-status vectors vectors-api vectors-status
 
 # Default target
 help:
@@ -27,6 +27,14 @@ help:
 	@echo "  make wow          - WOW SR with auto-fetch (best for z18!) 🌟"
 	@echo "  make wow-file     - WOW SR on specific file"
 	@echo "  make smart-fetch  - Auto-get best image (last 30d, cloud ≤30%)"
+	@echo ""
+	@echo "🗺️ Vector Intelligence:"
+	@echo "  make vectors      - Extract field boundary polygons 🗺️"
+	@echo "  make vectors-v2   - V2: gradient segmentation + OSM roads + zones 🚀"
+	@echo "  make multiband    - Fetch & stack Sentinel-2 B04+B08+SCL (real NDVI) 📥"
+	@echo "  make vectors-ndvi - multiband → vectors-v2 (source=ndvi_bands) ✅"
+	@echo "  make vectors-api  - Extract vectors via API"
+	@echo "  make vectors-status - Check vector extraction status"
 	@echo ""
 	@echo "⚙️ Individual Commands:"
 	@echo "  make up           - Start all services"
@@ -337,3 +345,133 @@ pipeline-watch:
 		fi; \
 		sleep 5; \
 	done
+
+# ============================================================
+# VECTOR INTELLIGENCE
+# ============================================================
+
+# Extract field boundary polygons from satellite imagery
+# This creates data/vectors/fields.geojson which is served by the API
+vectors:
+	@echo "============================================"
+	@echo "🗺️  VECTOR INTELLIGENCE - Field Extraction"
+	@echo "============================================"
+	@echo ""
+	@echo "Extracting field boundaries from satellite imagery..."
+	@echo "This uses NDVI or HSV color analysis to detect fields."
+	@echo ""
+	@if docker compose ps -q server > /dev/null 2>&1 && docker compose ps | grep -q "Up"; then \
+		docker compose exec server python -m app.generate_vectors; \
+	else \
+		docker compose run --rm server python -m app.generate_vectors; \
+	fi
+
+# V2 Enhanced vector extraction with:
+# - Gradient-based segmentation (better boundary detection)
+# - OSM road clipping (splits fields at roads)
+# - Management zones (k-means clustering)
+# - Rich per-field statistics (mean_ndvi, ndvi_std, edge_strength)
+vectors-v2:
+	@echo "============================================"
+	@echo "🚀 VECTOR INTELLIGENCE V2 - Enhanced"
+	@echo "============================================"
+	@echo ""
+	@echo "Features:"
+	@echo "  • Gradient-based segmentation (Sobel → watershed)"
+	@echo "  • OSM road clipping (field splitting)"
+	@echo "  • Management zones (k-means on NDVI)"
+	@echo "  • Rich statistics (mean_ndvi, ndvi_std, edge_strength)"
+	@echo ""
+	@if docker compose ps -q server > /dev/null 2>&1 && docker compose ps | grep -q "Up"; then \
+		docker compose exec server python -m app.vector_extraction_v2 \
+			--aoi config/aoi.geojson \
+			--rasters data/source/*.tif \
+			--out data/vectors; \
+	else \
+		docker compose run --rm server python -m app.vector_extraction_v2 \
+			--aoi config/aoi.geojson \
+			--rasters data/source/*.tif \
+			--out data/vectors; \
+	fi
+
+# Fetch & stack Sentinel-2 bands for REAL NDVI (B04+B08) + SCL
+multiband:
+	@echo "============================================"
+	@echo "📥 Fetching Sentinel-2 multiband (B04+B08+SCL)"
+	@echo "============================================"
+	@if docker compose ps -q server > /dev/null 2>&1 && docker compose ps | grep -q "Up"; then \
+		docker compose exec server python -m app.fetch_multiband --aoi config/aoi.geojson --out data/source; \
+	else \
+		docker compose run --rm server python -m app.fetch_multiband --aoi config/aoi.geojson --out data/source; \
+	fi
+
+# One-shot: fetch multiband then run vectors-v2 using that stack
+vectors-ndvi: multiband
+	@echo "============================================"
+	@echo "✅ Extracting vectors from real NDVI (B04+B08)"
+	@echo "============================================"
+	@if docker compose ps -q server > /dev/null 2>&1 && docker compose ps | grep -q "Up"; then \
+		docker compose exec server sh -lc 'python -m app.vector_extraction_v2 \
+			--aoi config/aoi.geojson \
+			--rasters data/source/s2_multiband_*.tif \
+			--out data/vectors \
+			--no-osm --no-zones'; \
+	else \
+		docker compose run --rm server sh -lc 'python -m app.vector_extraction_v2 \
+			--aoi config/aoi.geojson \
+			--rasters data/source/s2_multiband_*.tif \
+			--out data/vectors \
+			--no-osm --no-zones'; \
+	fi
+
+# Extract vectors with custom AOI
+vectors-custom:
+	@echo "Usage: make vectors-custom AOI=path/to/aoi.geojson"
+	@if [ -z "$(AOI)" ]; then echo "Error: AOI not specified"; exit 1; fi
+	@if docker compose ps -q server > /dev/null 2>&1 && docker compose ps | grep -q "Up"; then \
+		docker compose exec server python -m app.generate_vectors --aoi $(AOI); \
+	else \
+		docker compose run --rm server python -m app.generate_vectors --aoi $(AOI); \
+	fi
+
+# Extract vectors via API (runs in background)
+vectors-api:
+	@echo "🗺️  Starting vector extraction via API..."
+	@curl -s -X POST http://localhost:8080/api/vectors \
+		-H "Content-Type: application/json" \
+		-d '{"ndvi_threshold": 0.3, "min_area_ha": 0.1, "max_area_ha": 500}' | jq .
+	@echo ""
+	@echo "Monitor progress: make vectors-status JOB=<job_id>"
+
+# Check vector extraction status
+vectors-status:
+	@if [ -z "$(JOB)" ]; then \
+		echo "Checking vector metadata..."; \
+		curl -s http://localhost:8080/api/vectors/metadata | jq .; \
+	else \
+		echo "Status for job: $(JOB)"; \
+		curl -s http://localhost:8080/api/vectors/$(JOB) | jq .; \
+	fi
+
+# Full pipeline with vectors: Fetch → Tiles → SR → SR Tiles → Vectors
+pipeline-full:
+	@echo "============================================"
+	@echo "🚀 Running Full Pipeline + Vectors"
+	@echo "============================================"
+	@echo ""
+	@echo "Step 1: Running pipeline (Fetch → Tiles → SR → SR Tiles)..."
+	@$(MAKE) pipeline
+	@echo ""
+	@echo "Waiting for pipeline to complete..."
+	@sleep 10
+	@echo ""
+	@echo "Step 2: Extracting field boundary vectors..."
+	@$(MAKE) vectors
+	@echo ""
+	@echo "============================================"
+	@echo "🎉 Full Pipeline + Vectors Complete!"
+	@echo "============================================"
+	@echo ""
+	@echo "View at: http://localhost:8080"
+	@echo "Toggle 'Field Boundaries' to see vector overlay"
+	@echo ""

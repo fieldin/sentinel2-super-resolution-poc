@@ -1,0 +1,40 @@
+{
+  "timestamp": "20260104_124342",
+  "input": "data/source/20260104_122715_sentinel2_sr.tif",
+  "outputs": {
+    "sr_tif": "data/wow/20260104_122715_sentinel2_sr_wow_sr.tif",
+    "sr_png": "data/wow/20260104_122715_sentinel2_sr_wow_sr.png"
+  },
+  "sr_metadata": {
+    "input_file": "data/source/20260104_122715_sentinel2_sr.tif",
+    "output_file": "data/wow/20260104_122715_sentinel2_sr_wow_sr.tif",
+    "scale": 4,
+    "pipeline": "Real-ESRGAN x4 + Enhanced",
+    "stages": [
+      {
+        "model": "RealESRGAN_x4",
+        "purpose": "High-quality GAN upscaling"
+      },
+      {
+        "post_processing": "Enhanced",
+        "purpose": "Crop visibility"
+      }
+    ],
+    "enhancements": [
+      "CLAHE local contrast",
+      "Unsharp mask",
+      "Vegetation boost"
+    ],
+    "original_size": [
+      1024,
+      1024
+    ],
+    "output_size": [
+      4096,
+      4096
+    ],
+    "original_resolution_m": 10.0,
+    "effective_resolution_m": 2.5,
+    "optimized_for": "z18_crop_visibility"
+  }
+}

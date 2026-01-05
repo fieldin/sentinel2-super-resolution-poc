@@ -1,6 +1,8 @@
 // Global styles for Sentinel-2 Viewer
 // Design: Dark theme with satellite imagery aesthetic
 
+@import 'leaflet/dist/leaflet.css';
+
 :root {
   // Color palette - inspired by satellite imagery and data visualization
   --color-bg-primary: #0a0e17;
@@ -95,46 +97,185 @@ body {
   outline-offset: 2px;
 }
 
-// Mapbox GL overrides
-.mapboxgl-ctrl-group {
-  background: var(--color-bg-card) !important;
-  border: 1px solid var(--color-border) !important;
-  border-radius: var(--radius-sm) !important;
-  box-shadow: var(--shadow-md) !important;
-  
-  button {
-    background: transparent !important;
-    
-    &:hover {
-      background: var(--color-bg-hover) !important;
-    }
-    
-    .mapboxgl-ctrl-icon {
-      filter: invert(1) brightness(0.9);
-    }
+// User Location Marker Styles
+.user-location-marker {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.user-location-dot {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  border-radius: 50%;
+  border: 3px solid #fff;
+  box-shadow: 
+    0 0 0 2px rgba(59, 130, 246, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+}
+
+.user-location-pulse {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 50%;
+  animation: location-pulse 2s ease-out infinite;
+  z-index: 1;
+}
+
+@keyframes location-pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
   }
 }
 
-.mapboxgl-ctrl-attrib {
-  background: rgba(26, 35, 50, 0.9) !important;
-  color: var(--color-text-muted) !important;
-  font-size: 10px !important;
-  padding: 2px 6px !important;
+// User Location Popup
+.user-popup {
+  padding: var(--space-sm) var(--space-md);
+  text-align: center;
   
-  a {
-    color: var(--color-accent-secondary) !important;
+  strong {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  
+  .coords {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
   }
 }
 
-.mapboxgl-popup-content {
+// Leaflet overrides for dark theme
+.leaflet-container {
+  background: var(--color-bg-primary);
+}
+
+.leaflet-popup-content-wrapper {
   background: var(--color-bg-card) !important;
   color: var(--color-text-primary) !important;
   border-radius: var(--radius-md) !important;
-  padding: var(--space-md) !important;
   box-shadow: var(--shadow-lg) !important;
+  border: 1px solid var(--color-border) !important;
 }
 
-.mapboxgl-popup-tip {
-  border-top-color: var(--color-bg-card) !important;
+.leaflet-popup-tip {
+  background: var(--color-bg-card) !important;
 }
 
+.leaflet-popup-close-button {
+  color: var(--color-text-muted) !important;
+  
+  &:hover {
+    color: var(--color-text-primary) !important;
+  }
+}
+
+// FLD Map Speed Dial / Controls styling
+.p-speeddial {
+  .p-speeddial-button {
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border) !important;
+    color: var(--color-text-primary) !important;
+    
+    &:hover {
+      background: var(--color-bg-hover) !important;
+      border-color: var(--color-accent-primary) !important;
+    }
+  }
+  
+  .p-speeddial-action {
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border) !important;
+    color: var(--color-text-primary) !important;
+    
+    &:hover {
+      background: var(--color-accent-primary) !important;
+      color: var(--color-bg-primary) !important;
+    }
+  }
+}
+
+// FLD Map edit controls styling
+.map-controls-wrapper {
+  .edit-btn, .draw-btn, .cancel-btn {
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border) !important;
+    color: var(--color-text-primary) !important;
+    border-radius: var(--radius-sm) !important;
+    
+    &:hover {
+      background: var(--color-bg-hover) !important;
+      border-color: var(--color-accent-primary) !important;
+    }
+    
+    &.active {
+      background: rgba(0, 212, 170, 0.2) !important;
+      border-color: var(--color-accent-primary) !important;
+      color: var(--color-accent-primary) !important;
+    }
+  }
+}
+
+// DeckGL tooltip styling
+.deck-tooltip {
+  background: var(--color-bg-card) !important;
+  color: var(--color-text-primary) !important;
+  border-radius: var(--radius-sm) !important;
+  border: 1px solid var(--color-border) !important;
+  box-shadow: var(--shadow-md) !important;
+  padding: var(--space-sm) var(--space-md) !important;
+  font-size: 13px !important;
+}
+
+// PrimeNG Tooltip fixes - prevent text wrapping
+.p-tooltip {
+  .p-tooltip-text {
+    white-space: nowrap !important;
+    max-width: none !important;
+  }
+}
+
+// FLD Speed Dial tooltip fixes
+.speed-menu {
+  [ptooltip], [ng-reflect-tooltip] {
+    .p-tooltip {
+      .p-tooltip-text {
+        white-space: nowrap !important;
+      }
+    }
+  }
+}
+
+// Map buttons wrapper tooltip styling
+.map-buttons-wrapper {
+  .p-tooltip {
+    .p-tooltip-text {
+      background: var(--color-bg-card) !important;
+      color: var(--color-text-primary) !important;
+      border: 1px solid var(--color-border) !important;
+      border-radius: var(--radius-sm) !important;
+      padding: 6px 12px !important;
+      font-size: 12px !important;
+      white-space: nowrap !important;
+      box-shadow: var(--shadow-md) !important;
+    }
+  }
+  
+  .p-tooltip-arrow {
+    border-top-color: var(--color-bg-card) !important;
+  }
+}

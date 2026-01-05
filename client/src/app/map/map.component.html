@@ -1,34 +1,43 @@
 <div class="map-wrapper">
-  <!-- Map Container -->
-  <div #mapContainer class="map-container"></div>
+  <!-- FLD Map Component -->
+  <div class="fld-map-container">
+    <fld-map 
+      [options]="mapConfiguration"
+      (mapReady)="onMapReady($event)"
+      (mapChanged)="onMapChanged($event)"
+      (findMyLocation)="onFindMyLocation()">
+    </fld-map>
+  </div>
 
   <!-- Loading Overlay -->
   @if (loading()) {
-    <div class="loading-overlay">
-      <div class="loader">
-        <div class="loader-ring"></div>
-        <span>Loading map...</span>
-      </div>
+  <div class="loading-overlay">
+    <div class="loader">
+      <div class="loader-ring"></div>
+      <span>Loading map...</span>
     </div>
+  </div>
   }
 
   <!-- Error Message -->
   @if (error()) {
-    <div class="error-banner">
-      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10"></circle>
-        <line x1="12" y1="8" x2="12" y2="12"></line>
-        <line x1="12" y1="16" x2="12.01" y2="16"></line>
-      </svg>
-      <span>{{ error() }}</span>
-    </div>
+  <div class="error-banner">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2">
+      <circle cx="12" cy="12" r="10"></circle>
+      <line x1="12" y1="8" x2="12" y2="12"></line>
+      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+    </svg>
+    <span>{{ error() }}</span>
+  </div>
   }
 
   <!-- Control Panel -->
   <div class="control-panel">
     <div class="panel-header">
       <div class="logo">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="1.5">
           <circle cx="12" cy="12" r="10"></circle>
           <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
           <path d="M2 12h20"></path>
@@ -40,18 +49,36 @@
 
     <!-- Status -->
     <div class="status-section">
+      @if (isMapReady()) {
+      <div class="status status--ready">
+        <div class="status-dot"></div>
+        <span>Map ready</span>
+      </div>
+      }
       @if (tilesAvailable()) {
-        <div class="status status--ready">
-          <div class="status-dot"></div>
-          <span>Tiles loaded</span>
-        </div>
-      } @else {
-        <div class="status status--warning">
-          <div class="status-dot"></div>
-          <span>No tiles available</span>
-        </div>
+      <div class="status status--tiles">
+        <div class="status-dot"></div>
+        <span>Tiles loaded</span>
+      </div>
       }
     </div>
+
+    <!-- Tile Source Toggle -->
+    @if (wowTilesAvailable()) {
+    <div class="control-group tile-source-group">
+      <label class="control-label">
+        <span>Tile Source</span>
+      </label>
+      <div class="tile-source-toggle">
+        <button class="tile-btn" [class.active]="!useWowTiles()" (click)="setTileSource('original')">
+          Original
+        </button>
+        <button class="tile-btn wow" [class.active]="useWowTiles()" (click)="setTileSource('wow')">
+          Real-ESRGAN
+        </button>
+      </div>
+    </div>
+    }
 
     <!-- Opacity Control -->
     <div class="control-group">
@@ -59,15 +86,8 @@
         <span>Layer Opacity</span>
         <span class="control-value">{{ opacity() }}%</span>
       </label>
-      <input
-        type="range"
-        class="slider"
-        [value]="opacity()"
-        (input)="onOpacityChange($any($event.target).value)"
-        min="0"
-        max="100"
-        step="5"
-      >
+      <input type="range" class="slider" [value]="opacity()" (input)="onOpacityChange($any($event.target).value)"
+        min="0" max="100" step="5">
     </div>
 
     <!-- Zoom Display -->
@@ -78,55 +98,96 @@
       </label>
     </div>
 
+    <!-- Drawing Info -->
+    <div class="control-group drawing-section">
+      <label class="control-label">
+        <span>Draw Polygons</span>
+        <div class="polygon-actions">
+          <span class="control-value polygon-count" [class.has-polygons]="drawnPolygons().length > 0">
+            {{ drawnPolygons().length }}
+          </span>
+          @if (drawnPolygons().length > 0) {
+          <button class="btn-icon btn-icon--delete" (click)="clearAllPolygons()" title="Clear all polygons">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+          </button>
+          }
+        </div>
+      </label>
+      <div class="draw-hint">
+        Use the <strong>Draw</strong> (✏️) button in map controls to draw polygons. 
+        Click <strong>Edit</strong> (🖊️) to modify existing polygons.
+      </div>
+      @if (drawnPolygons().length > 0) {
+      <button class="btn btn--download" (click)="downloadGeoJSON()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7,10 12,15 17,10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Download GeoJSON
+      </button>
+      }
+    </div>
+
     <!-- Scene Info -->
     @if (sourceInfo()) {
-      <div class="info-section">
-        <h3>Scene Information</h3>
-        <div class="info-grid">
-          <div class="info-item">
-            <span class="info-label">Scene ID</span>
-            <span class="info-value mono">{{ sourceInfo()!.scene_id | slice:0:20 }}...</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Acquisition</span>
-            <span class="info-value">{{ formattedAcquisitionDate() }}</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">Cloud Cover</span>
-            <span class="info-value">{{ sourceInfo()!.cloud_cover_pct }}%</span>
-          </div>
-          <div class="info-item">
-            <span class="info-label">File Size</span>
-            <span class="info-value">{{ sourceInfo()!.file_size_mb | number:'1.1-1' }} MB</span>
-          </div>
+    <div class="info-section">
+      <h3>Scene Information</h3>
+      <div class="info-grid">
+        <div class="info-item">
+          <span class="info-label">Scene ID</span>
+          <span class="info-value mono">{{ sourceInfo()!.scene_id | slice:0:20 }}...</span>
         </div>
-        
-        @if (sourceInfo()!.is_mock) {
-          <div class="mock-warning">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
-              <line x1="12" y1="9" x2="12" y2="13"></line>
-              <line x1="12" y1="17" x2="12.01" y2="17"></line>
-            </svg>
-            <span>Mock data - configure UP42 credentials</span>
-          </div>
-        }
+        <div class="info-item">
+          <span class="info-label">Acquisition</span>
+          <span class="info-value">{{ formattedAcquisitionDate() }}</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">Cloud Cover</span>
+          <span class="info-value">{{ sourceInfo()!.cloud_cover_pct }}%</span>
+        </div>
+        <div class="info-item">
+          <span class="info-label">File Size</span>
+          <span class="info-value">{{ sourceInfo()!.file_size_mb | number:'1.1-1' }} MB</span>
+        </div>
       </div>
+
+      @if (sourceInfo()!.is_mock) {
+      <div class="mock-warning">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+          <line x1="12" y1="9" x2="12" y2="13"></line>
+          <line x1="12" y1="17" x2="12.01" y2="17"></line>
+        </svg>
+        <span>Mock data - configure UP42 credentials</span>
+      </div>
+      }
+    </div>
     }
 
     <!-- Actions -->
     <div class="action-buttons">
       <button class="btn btn--secondary" (click)="zoomToExtent()" [disabled]="!tilesAvailable()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2">
           <path d="M15 3h6v6"></path>
           <path d="M9 21H3v-6"></path>
           <path d="M21 3l-7 7"></path>
           <path d="M3 21l7-7"></path>
         </svg>
-        Zoom to Extent
+        Extent
       </button>
       <button class="btn btn--primary" (click)="refreshData()">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2">
           <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.3"></path>
         </svg>
         Refresh
@@ -136,7 +197,6 @@
 
   <!-- Attribution -->
   <div class="attribution">
-    Sentinel-2 SR via UP42 • Mapbox
+    Sentinel-2 SR via UP42 • FieldIn Map
   </div>
 </div>
-

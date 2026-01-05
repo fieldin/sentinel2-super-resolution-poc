@@ -19,9 +19,12 @@ from pydantic import BaseModel
 import uvicorn
 
 from .settings import get_settings
-from .utils import setup_logging, read_json, find_latest_metadata
+from .utils import setup_logging, read_json, find_latest_metadata, write_json
 
 logger = setup_logging("server")
+
+# Vector data paths
+VECTORS_DIR = None  # Initialized after settings load
 
 # Thread pool for SR processing
 sr_executor = ThreadPoolExecutor(max_workers=1)
@@ -52,6 +55,7 @@ app.add_middleware(
 DATA_DIR = Path(settings.data_dir)
 TILES_DIR = DATA_DIR / "tiles"
 SOURCE_DIR = DATA_DIR / "source"
+VECTORS_DIR = DATA_DIR / "vectors"
 STATIC_DIR = Path("/app/static")
 
 
@@ -124,6 +128,18 @@ async def get_metadata():
         "sr": "/tiles_sr/{z}/{x}/{y}.png",
         "wow": "/tiles_wow/{z}/{x}/{y}.png",
     }
+
+    # Check for vector data
+    fields_path = VECTORS_DIR / "fields.geojson"
+    zones_path = VECTORS_DIR / "zones.geojson"
+    result["vectorsAvailable"] = fields_path.exists()
+    result["zonesAvailable"] = zones_path.exists()
+    if result["vectorsAvailable"]:
+        result["vectorEndpoints"] = {
+            "fields": "/vectors/fields.geojson",
+        }
+        if result["zonesAvailable"]:
+            result["vectorEndpoints"]["zones"] = "/vectors/zones.geojson"
 
     return result
 
@@ -523,6 +539,269 @@ async def get_wow_tile(z: int, x: int, y: int):
             "Access-Control-Allow-Origin": "*",
         },
     )
+
+
+# ============================================================
+# VECTOR INTELLIGENCE ENDPOINTS
+# ============================================================
+
+
+class VectorRequest(BaseModel):
+    """Request body for vector extraction."""
+
+    aoi_path: Optional[str] = None  # Path to AOI GeoJSON (default: config/aoi.geojson)
+    raster_path: Optional[str] = None  # Path to raster (default: latest SR or source)
+    ndvi_threshold: float = 0.3  # NDVI threshold for vegetation
+    min_area_ha: float = 0.1  # Minimum field area in hectares
+    max_area_ha: float = 500.0  # Maximum field area in hectares
+    simplify_tolerance_m: float = 5.0  # Simplification tolerance in meters
+
+
+class VectorResponse(BaseModel):
+    """Response for vector extraction job."""
+
+    job_id: str
+    status: str
+    message: str
+
+
+@app.get("/vectors/fields.geojson")
+async def get_fields_geojson():
+    """
+    Serve field boundary polygons as GeoJSON.
+
+    This endpoint returns the extracted field polygons for overlay on the map.
+    The GeoJSON is in EPSG:4326 (WGS84) for direct use with Mapbox GL.
+
+    Returns:
+        GeoJSON FeatureCollection with field polygons
+    """
+    fields_path = VECTORS_DIR / "fields.geojson"
+
+    if not fields_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Field vectors not found. Run vector extraction first: make vectors",
+        )
+
+    # Read and return GeoJSON
+    geojson = read_json(fields_path)
+
+    return JSONResponse(
+        content=geojson,
+        headers={
+            "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "application/geo+json",
+        },
+    )
+
+
+@app.get("/vectors/zones.geojson")
+async def get_zones_geojson():
+    """
+    Serve management zones as GeoJSON.
+
+    Management zones are sub-field areas clustered by NDVI values,
+    providing insight into field variability at high zoom levels.
+
+    Returns:
+        GeoJSON FeatureCollection with zone polygons
+    """
+    zones_path = VECTORS_DIR / "zones.geojson"
+
+    if not zones_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Management zones not found. Run v2 vector extraction with --zones",
+        )
+
+    geojson = read_json(zones_path)
+
+    return JSONResponse(
+        content=geojson,
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+            "Content-Type": "application/geo+json",
+        },
+    )
+
+
+@app.get("/api/vectors/metadata")
+async def get_vectors_metadata():
+    """
+    Get metadata about available vector layers.
+
+    Returns information about extracted field polygons including
+    feature count, extraction method, and timestamps.
+    """
+    fields_path = VECTORS_DIR / "fields.geojson"
+    metadata_path = VECTORS_DIR / "extraction_metadata.json"
+
+    result = {
+        "vectorsAvailable": fields_path.exists(),
+        "endpoint": "/vectors/fields.geojson",
+    }
+
+    if metadata_path.exists():
+        result["metadata"] = read_json(metadata_path)
+
+    if fields_path.exists():
+        # Get basic stats from GeoJSON
+        try:
+            geojson = read_json(fields_path)
+            result["featureCount"] = len(geojson.get("features", []))
+            result["properties"] = geojson.get("properties", {})
+        except Exception as e:
+            logger.warning(f"Failed to read fields.geojson: {e}")
+
+    return result
+
+
+def run_vector_extraction_job(
+    job_id: str,
+    aoi_path: Path,
+    raster_paths: list,
+    config_dict: dict,
+):
+    """Background task to run vector extraction."""
+    try:
+        sr_jobs[job_id]["status"] = "processing"
+        sr_jobs[job_id]["message"] = "Extracting field boundaries..."
+
+        from .vector_extraction import extract_field_polygons, ExtractionConfig
+
+        # Create config from dict
+        config = ExtractionConfig(
+            ndvi_threshold=config_dict.get("ndvi_threshold", 0.3),
+            min_area_ha=config_dict.get("min_area_ha", 0.1),
+            max_area_ha=config_dict.get("max_area_ha", 500.0),
+            simplify_tolerance_m=config_dict.get("simplify_tolerance_m", 5.0),
+        )
+
+        result = extract_field_polygons(
+            aoi_geojson=aoi_path,
+            raster_paths=raster_paths,
+            out_dir=VECTORS_DIR,
+            config=config,
+        )
+
+        sr_jobs[job_id]["status"] = "completed"
+        sr_jobs[job_id][
+            "message"
+        ] = f"Extracted {result['feature_count']} field polygons"
+        sr_jobs[job_id]["result"] = {
+            "feature_count": result["feature_count"],
+            "output_path": result["output_path"],
+            "source_method": result["source_method"],
+        }
+
+    except Exception as e:
+        logger.error(f"Vector extraction job {job_id} failed: {e}")
+        sr_jobs[job_id]["status"] = "failed"
+        sr_jobs[job_id]["message"] = str(e)
+
+
+@app.post("/api/vectors", response_model=VectorResponse)
+async def start_vector_extraction(
+    request: VectorRequest, background_tasks: BackgroundTasks
+):
+    """
+    Start field boundary vector extraction.
+
+    Extracts field polygons from satellite imagery using:
+    - NDVI-based segmentation (if spectral bands available)
+    - HSV color-based segmentation (RGB fallback)
+
+    The extraction processes the entire AOI at once to ensure
+    polygons don't break across tile boundaries.
+
+    Returns job_id to track progress via GET /api/vectors/{job_id}
+    """
+    # Determine AOI path
+    if request.aoi_path:
+        aoi_path = Path(request.aoi_path)
+    else:
+        # Default to config/aoi.geojson
+        aoi_path = Path("/app/config/aoi.geojson")
+        if not aoi_path.exists():
+            aoi_path = Path("config/aoi.geojson")
+
+    if not aoi_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"AOI file not found: {aoi_path}",
+        )
+
+    # Determine raster path(s)
+    raster_paths = []
+
+    if request.raster_path:
+        raster_paths.append(Path(request.raster_path))
+    else:
+        # Look for SR output first, then original
+        wow_dir = DATA_DIR / "wow"
+        sr_dir = DATA_DIR / "sr"
+
+        # Find latest SR output
+        for search_dir in [wow_dir, sr_dir, SOURCE_DIR]:
+            if search_dir.exists():
+                tifs = sorted(
+                    search_dir.rglob("*.tif"),
+                    key=lambda x: x.stat().st_mtime,
+                    reverse=True,
+                )
+                if tifs:
+                    raster_paths.append(tifs[0])
+                    break
+
+    if not raster_paths:
+        raise HTTPException(
+            status_code=404,
+            detail="No raster files found. Run the pipeline or specify raster_path.",
+        )
+
+    # Create job
+    job_id = f"vectors_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+    sr_jobs[job_id] = {
+        "status": "queued",
+        "message": "Vector extraction queued",
+        "aoi_path": str(aoi_path),
+        "raster_paths": [str(p) for p in raster_paths],
+        "config": {
+            "ndvi_threshold": request.ndvi_threshold,
+            "min_area_ha": request.min_area_ha,
+            "max_area_ha": request.max_area_ha,
+            "simplify_tolerance_m": request.simplify_tolerance_m,
+        },
+        "created_at": datetime.now().isoformat(),
+    }
+
+    # Run in background
+    background_tasks.add_task(
+        run_vector_extraction_job,
+        job_id,
+        aoi_path,
+        raster_paths,
+        sr_jobs[job_id]["config"],
+    )
+
+    return VectorResponse(
+        job_id=job_id,
+        status="queued",
+        message=f"Vector extraction started from {raster_paths[0].name}",
+    )
+
+
+@app.get("/api/vectors/{job_id}")
+async def get_vector_job_status(job_id: str):
+    """Get status of a vector extraction job."""
+    if job_id not in sr_jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return sr_jobs[job_id]
 
 
 # ============================================================

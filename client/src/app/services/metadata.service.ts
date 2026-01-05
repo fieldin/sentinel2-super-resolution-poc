@@ -26,10 +26,21 @@ export interface SourceMetadata {
   is_mock?: boolean;
 }
 
+export interface TileEndpoints {
+  original: string;
+  sr: string;
+  wow: string;
+}
+
 export interface MetadataResponse {
   tileset: TilesetMetadata | null;
   source: SourceMetadata | null;
   tilesAvailable: boolean;
+  srTilesAvailable?: boolean;
+  wowTilesAvailable?: boolean;
+  tileEndpoints?: TileEndpoints;
+  vectorsAvailable?: boolean;
+  zonesAvailable?: boolean;
 }
 
 @Injectable({
