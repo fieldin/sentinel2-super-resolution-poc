@@ -39,3 +39,4 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 data/vectors/zones.geojson
+client/.angular/
