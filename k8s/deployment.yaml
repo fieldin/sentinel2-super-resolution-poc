@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: sentinel-poc
-          image: registry.fieldintech.com:5000/fieldin/sentinel-poc:latest
+          image: 569061878514.dkr.ecr.eu-west-1.amazonaws.com/sentinel-poc:latest
           ports:
             - containerPort: 8080
           env:
