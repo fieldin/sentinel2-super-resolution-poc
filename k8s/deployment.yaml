@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sentinel-poc
+  namespace: sentinel-poc
+  labels:
+    app: sentinel-poc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sentinel-poc
+  template:
+    metadata:
+      labels:
+        app: sentinel-poc
+    spec:
+      containers:
+        - name: sentinel-poc
+          image: registry.fieldintech.com:5000/fieldin/sentinel-poc:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: UP42_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-poc-secrets
+                  key: UP42_USERNAME
+                  optional: true
+            - name: UP42_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: sentinel-poc-secrets
+                  key: UP42_PASSWORD
+                  optional: true
+            - name: MAPBOX_ACCESS_TOKEN
+              value: "pk.eyJ1IjoiZHJvcmUiLCJhIjoiYkxSbmZYUSJ9.Ij81_3Tc3HFJTkrzmzIUBw"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5

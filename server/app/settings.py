@@ -12,8 +12,9 @@ class Settings(BaseSettings):
     """Application configuration loaded from environment variables."""
 
     # UP42 Credentials (username/password auth per docs.up42.com)
-    up42_username: str = Field(..., description="UP42 account email")
-    up42_password: str = Field(..., description="UP42 account password")
+    # Made optional so POC can run with pre-loaded tiles
+    up42_username: str = Field(default="", description="UP42 account email (optional for POC)")
+    up42_password: str = Field(default="", description="UP42 account password (optional for POC)")
     up42_project_id: str = Field(
         default="", description="UP42 Project/Account ID (optional)"
     )

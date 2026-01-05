@@ -17,8 +17,8 @@ import { MetadataService, MetadataResponse, SourceMetadata, TilesetMetadata } fr
 
 // User location configuration
 const USER_LOCATION = {
-  lat: 36.6229233241847,
-  lng: -121.67341900517911
+  lat: 36.62680064094857,
+  lng: -121.66996252733001
 };
 
 @Component({
@@ -275,7 +275,32 @@ export class MapComponent implements OnInit, OnDestroy {
     if (deckLayersService && mapControlsService) {
       // Switch from draw mode to edit mode
       setTimeout(() => {
+        // Ensure all drawn polygons have editable properties
+        if (deckLayersService.editPolygonData?.features) {
+          deckLayersService.editPolygonData.features.forEach((feature: any, index: number) => {
+            if (!feature.polygonData) {
+              feature.polygonData = {
+                id: `drawn-${Date.now()}-${index}`,
+                name: `Polygon ${index + 1}`,
+                type: 'drawn',
+                editable: true,
+                isEdited: false,
+                isDeleted: false
+              };
+            } else {
+              feature.polygonData.editable = true;
+            }
+          });
+        }
+        
+        // Switch to edit mode - this removes draw layer and enables modify mode
         deckLayersService.editNewPolygon();
+        
+        // Select the last drawn polygon for immediate editing
+        if (deckLayersService.editPolygonData?.features?.length > 0) {
+          const lastIndex = deckLayersService.editPolygonData.features.length - 1;
+          deckLayersService.selectedFeatureIndexes = [lastIndex];
+        }
         
         // Update the UI button state to show Edit as active
         mapControlsService.polygonManagement.selectedItem = 'editPolygon';
@@ -286,7 +311,7 @@ export class MapComponent implements OnInit, OnDestroy {
           mapControlsService.cdRef.markForCheck();
         }
         
-        console.log('🔄 Switched to edit mode');
+        console.log('🔄 Switched to edit mode - polygon ready for vertex editing');
       }, 100);
     }
   }
