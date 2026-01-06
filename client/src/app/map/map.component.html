@@ -1,10 +1,7 @@
 <div class="map-wrapper">
   <!-- FLD Map Component -->
   <div class="fld-map-container">
-    <fld-map 
-      [options]="mapConfiguration"
-      (mapReady)="onMapReady($event)"
-      (mapChanged)="onMapChanged($event)"
+    <fld-map [options]="mapConfiguration" (mapReady)="onMapReady($event)" (mapChanged)="onMapChanged($event)"
       (findMyLocation)="onFindMyLocation()">
     </fld-map>
   </div>
@@ -32,8 +29,28 @@
   </div>
   }
 
+  <!-- Mobile Toggle Button -->
+  <button class="mobile-toggle" [class.panel-open]="isPanelOpen()" (click)="togglePanel()">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2">
+      @if (isPanelOpen()) {
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+      } @else {
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+      }
+    </svg>
+  </button>
+
+  <!-- Mobile Overlay -->
+  @if (isPanelOpen()) {
+  <div class="mobile-overlay" (click)="togglePanel()"></div>
+  }
+
   <!-- Control Panel -->
-  <div class="control-panel">
+  <div class="control-panel" [class.open]="isPanelOpen()">
     <div class="panel-header">
       <div class="logo">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
@@ -120,7 +137,7 @@
         </div>
       </label>
       <div class="draw-hint">
-        Use the <strong>Draw</strong> (✏️) button in map controls to draw polygons. 
+        Use the <strong>Draw</strong> (✏️) button in map controls to draw polygons.
         Click <strong>Edit</strong> (🖊️) to modify existing polygons.
       </div>
       @if (drawnPolygons().length > 0) {

@@ -40,6 +40,7 @@ export class MapComponent implements OnInit, OnDestroy {
   currentZoom = signal(12);
   useWowTiles = signal(true);
   drawnPolygons = signal<any[]>([]);
+  isPanelOpen = signal(false);
 
   sourceInfo = signal<SourceMetadata | null>(null);
 
@@ -193,6 +194,131 @@ export class MapComponent implements OnInit, OnDestroy {
         if (this.mapConfiguration.editPolygons && !_.find(mapControlsService.mapButtons, { name: 'polygonManagement' })) {
           mapControlsService.addEditPolygonsControls();
           console.log('✅ Edit polygon controls added');
+
+          // Hook into draw/edit actions to hide drawnPolygonsLayer when entering edit mode
+          const drawDict = mapControlsService.polygonManagementDictionary?.drawPolygon;
+          const editDict = mapControlsService.polygonManagementDictionary?.editPolygon;
+          const deckLayersService: any = _.get(this, 'mapConfiguration.services.deckLayersService');
+
+          if (drawDict) {
+            const originalDrawActivate = drawDict.activate;
+            drawDict.activate = () => {
+              // Hide drawnPolygonsLayer when entering draw mode
+              if (deckLayersService?.layers?.drawnPolygonsLayer) {
+                delete deckLayersService.layers.drawnPolygonsLayer;
+                delete deckLayersService.layersDef?.drawnPolygonsLayer;
+                if (deckLayersService.deck) {
+                  deckLayersService.updateLayers(deckLayersService.deck);
+                }
+                console.log('🙈 Hidden drawnPolygonsLayer for draw mode');
+              }
+              originalDrawActivate();
+            };
+          }
+
+          if (editDict) {
+            const originalEditActivate = editDict.activate;
+            editDict.activate = () => {
+              // Hide drawnPolygonsLayer when entering edit mode
+              if (deckLayersService?.layers?.drawnPolygonsLayer) {
+                delete deckLayersService.layers.drawnPolygonsLayer;
+                delete deckLayersService.layersDef?.drawnPolygonsLayer;
+                if (deckLayersService.deck) {
+                  deckLayersService.updateLayers(deckLayersService.deck);
+                }
+                console.log('🙈 Hidden drawnPolygonsLayer for edit mode');
+              }
+              originalEditActivate();
+            };
+          }
+
+          // Hook into cancel action to preserve polygons
+          const cancelDict = mapControlsService.polygonManagementDictionary?.cancelPolygonManagement;
+          if (cancelDict) {
+            cancelDict.activate = () => {
+              console.log('🔄 Cancel clicked');
+              console.log('editPolygonData:', deckLayersService?.editPolygonData);
+              console.log('features:', deckLayersService?.editPolygonData?.features);
+
+              // Deep copy polygon features BEFORE any cleanup
+              const savedPolygons: any[] = [];
+              if (deckLayersService?.editPolygonData?.features) {
+                deckLayersService.editPolygonData.features.forEach((feature: any, index: number) => {
+                  console.log(`Feature ${index}:`, feature);
+                  console.log(`Geometry:`, feature.geometry);
+                  console.log(`Coordinates:`, feature.geometry?.coordinates);
+
+                  if (feature.geometry?.coordinates?.[0]) {
+                    savedPolygons.push({
+                      polygon: [...feature.geometry.coordinates[0]],
+                      polygonData: {
+                        id: feature.polygonData?.id || `polygon-${Date.now()}-${index}`,
+                        name: feature.polygonData?.name || `Polygon ${index + 1}`,
+                        type: 'drawn',
+                        editable: true,
+                        isEdited: false,
+                        isDeleted: false
+                      }
+                    });
+                  }
+                });
+              }
+
+              console.log('💾 Saved polygons:', savedPolygons);
+
+              // Manually clean up edit/draw mode (similar to removeDrawPolygons but preserve our data)
+              if (deckLayersService) {
+                // Remove edit layers
+                delete deckLayersService.layers['draw_polygonsLayer'];
+                delete deckLayersService.layers['edit_polygonsLayer'];
+                delete deckLayersService.layersDef['draw_polygonsLayer'];
+                delete deckLayersService.layersDef['edit_polygonsLayer'];
+
+                // Reset modes
+                deckLayersService.editPolygonMode = false;
+                deckLayersService.addPolygonMode = false;
+                deckLayersService.selectedFeatureIndexes = [];
+
+                // Remove handlers
+                if (deckLayersService.removeMapClickHandler) {
+                  deckLayersService.removeMapClickHandler();
+                }
+                if (deckLayersService.removeTouchInterceptor) {
+                  deckLayersService.removeTouchInterceptor();
+                }
+                if (deckLayersService.enableMapInteractions) {
+                  deckLayersService.enableMapInteractions();
+                }
+
+                // Add saved polygons as visible layer
+                if (savedPolygons.length > 0) {
+                  console.log('➕ Adding drawnPolygonsLayer with', savedPolygons.length, 'polygons');
+                  deckLayersService.addPolygonsLayer(savedPolygons, 'drawnPolygonsLayer', {
+                    filled: true,
+                    getFillColor: () => [0, 212, 170, 0],
+                    getLineColor: () => [0, 212, 170, 255],
+                    lineWidthMinPixels: 2
+                  });
+                  console.log('layersDef after add:', Object.keys(deckLayersService.layersDef));
+                  console.log('drawnPolygonsLayer data:', deckLayersService.layersDef['drawnPolygonsLayer']?.data);
+                }
+
+                // Update layers
+                if (deckLayersService.deck) {
+                  console.log('🔄 Updating deck layers');
+                  deckLayersService.updateLayers(deckLayersService.deck);
+                }
+              }
+
+              // Update UI state
+              mapControlsService.polygonManagement.isVisible = false;
+              this.mapConfiguration.polygonManagement = false;
+
+              // Update our polygon count
+              this.drawnPolygons.set(savedPolygons);
+              console.log(`📊 Preserved ${savedPolygons.length} polygon(s) after cancel`);
+            };
+          }
         }
 
         // Reset button controls and update map buttons
@@ -253,9 +379,7 @@ export class MapComponent implements OnInit, OnDestroy {
     } else if (event.eventName === 'addPolygon') {
       console.log('✅ New polygon added:', event.data);
       this.updateDrawnPolygons();
-
-      // Automatically switch to edit mode after drawing a polygon
-      this.switchToEditMode();
+      // Note: Not auto-switching to edit mode to keep polygon styled with cyan outline
     } else if (event.eventName === 'polygonClicked') {
       console.log('⚠️ Polygon clicked:', event.data.polygonData?.name, '- Not in edit mode');
       console.log('💡 Hint: Click Edit button (🖊️) first, then click polygon');
@@ -271,7 +395,7 @@ export class MapComponent implements OnInit, OnDestroy {
   private switchToEditMode(): void {
     const deckLayersService: any = _.get(this, 'mapConfiguration.services.deckLayersService');
     const mapControlsService: any = _.get(this, 'mapConfiguration.services.mapControlsService');
-    
+
     if (deckLayersService && mapControlsService) {
       // Switch from draw mode to edit mode
       setTimeout(() => {
@@ -292,25 +416,25 @@ export class MapComponent implements OnInit, OnDestroy {
             }
           });
         }
-        
+
         // Switch to edit mode - this removes draw layer and enables modify mode
         deckLayersService.editNewPolygon();
-        
+
         // Select the last drawn polygon for immediate editing
         if (deckLayersService.editPolygonData?.features?.length > 0) {
           const lastIndex = deckLayersService.editPolygonData.features.length - 1;
           deckLayersService.selectedFeatureIndexes = [lastIndex];
         }
-        
+
         // Update the UI button state to show Edit as active
         mapControlsService.polygonManagement.selectedItem = 'editPolygon';
         mapControlsService.polygonManagement.isVisible = true;
-        
+
         // Force UI update
         if (mapControlsService.cdRef) {
           mapControlsService.cdRef.markForCheck();
         }
-        
+
         console.log('🔄 Switched to edit mode - polygon ready for vertex editing');
       }, 100);
     }
@@ -323,19 +447,38 @@ export class MapComponent implements OnInit, OnDestroy {
     const deckLayersService: any = _.get(this, 'mapConfiguration.services.deckLayersService');
     if (!deckLayersService) return;
 
-    // Drawn polygons are stored in editPolygonData.features (GeoJSON format)
-    const drawnFeatures = deckLayersService.editPolygonData?.features || [];
+    // Check for polygons in editPolygonData (during edit mode)
+    const editFeatures = deckLayersService.editPolygonData?.features || [];
 
-    // Convert GeoJSON features to polygon format for our component
-    const polygons = drawnFeatures.map((feature: any, index: number) => ({
-      polygon: feature.geometry?.coordinates?.[0] || [],
-      polygonData: {
-        id: feature.properties?.id || `drawn-${index + 1}`,
-        name: feature.properties?.name || `Polygon ${index + 1}`,
-        type: 'drawn',
-        ...feature.properties
-      }
-    }));
+    // Also check for polygons in drawnPolygonsLayer (after cancel)
+    const drawnLayerData = deckLayersService.layersDef?.drawnPolygonsLayer || [];
+
+    let polygons: any[] = [];
+
+    if (editFeatures.length > 0) {
+      // Convert GeoJSON features to polygon format
+      polygons = editFeatures.map((feature: any, index: number) => ({
+        polygon: feature.geometry?.coordinates?.[0] || [],
+        polygonData: {
+          id: feature.polygonData?.id || feature.properties?.id || `drawn-${index + 1}`,
+          name: feature.polygonData?.name || feature.properties?.name || `Polygon ${index + 1}`,
+          type: 'drawn',
+          ...feature.polygonData,
+          ...feature.properties
+        }
+      }));
+    } else if (drawnLayerData.length > 0) {
+      // Use polygons from the drawn layer
+      polygons = drawnLayerData.map((item: any, index: number) => ({
+        polygon: item.polygon || [],
+        polygonData: {
+          id: item.polygonData?.id || `drawn-${index + 1}`,
+          name: item.polygonData?.name || `Polygon ${index + 1}`,
+          type: 'drawn',
+          ...item.polygonData
+        }
+      }));
+    }
 
     this.drawnPolygons.set(polygons);
     console.log(`📊 Total polygons: ${polygons.length}`, polygons);
@@ -519,6 +662,14 @@ export class MapComponent implements OnInit, OnDestroy {
       // Remove draw polygons layer
       deckLayersService.removeDrawPolygons();
 
+      // Also remove the preserved drawn polygons layer
+      if (deckLayersService.layers?.drawnPolygonsLayer) {
+        delete deckLayersService.layers.drawnPolygonsLayer;
+      }
+      if (deckLayersService.layersDef?.drawnPolygonsLayer) {
+        delete deckLayersService.layersDef.drawnPolygonsLayer;
+      }
+
       // Update deck layers
       if (deckLayersService.deck) {
         deckLayersService.updateLayers(deckLayersService.deck);
@@ -529,6 +680,13 @@ export class MapComponent implements OnInit, OnDestroy {
 
       console.log('🗑️ All polygons cleared');
     }
+  }
+
+  /**
+   * Toggle mobile control panel
+   */
+  togglePanel(): void {
+    this.isPanelOpen.update(v => !v);
   }
 
   /**

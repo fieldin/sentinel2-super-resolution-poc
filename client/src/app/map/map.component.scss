@@ -72,6 +72,65 @@
   font-size: 13px;
   z-index: 50;
   backdrop-filter: blur(8px);
+  
+  @media (max-width: 768px) {
+    top: auto;
+    bottom: var(--space-xl);
+    left: var(--space-md);
+    right: var(--space-md);
+    transform: none;
+    font-size: 12px;
+  }
+}
+
+// Mobile Toggle Button
+.mobile-toggle {
+  display: none;
+  position: absolute;
+  top: var(--space-md);
+  left: var(--space-md);
+  width: 48px;
+  height: 48px;
+  background: rgba(26, 35, 50, 0.95);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  z-index: 15;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-accent-primary);
+  }
+  
+  &.panel-open {
+    background: var(--color-accent-primary);
+    color: var(--color-bg-primary);
+    border-color: var(--color-accent-primary);
+  }
+  
+  @media (max-width: 768px) {
+    display: flex;
+  }
+}
+
+// Mobile Overlay
+.mobile-overlay {
+  display: none;
+  
+  @media (max-width: 768px) {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 9;
+    backdrop-filter: blur(2px);
+  }
 }
 
 // Control Panel
@@ -80,6 +139,8 @@
   top: var(--space-md);
   left: var(--space-md);
   width: 300px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
   background: rgba(26, 35, 50, 0.95);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -87,10 +148,37 @@
   box-shadow: var(--shadow-lg), var(--shadow-glow);
   backdrop-filter: blur(12px);
   z-index: 10;
+  transition: transform 0.3s ease, opacity 0.3s ease;
 
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  
+  // Mobile styles
+  @media (max-width: 768px) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 85%;
+    max-width: 320px;
+    height: 100%;
+    max-height: 100%;
+    border-radius: 0;
+    border-left: none;
+    border-top: none;
+    border-bottom: none;
+    padding: var(--space-lg);
+    padding-top: calc(var(--space-lg) + 56px); // Account for toggle button
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+    
+    &.open {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
 }
 
 .panel-header {
@@ -228,6 +316,13 @@
   background: transparent;
   color: var(--color-text-muted);
   transition: all 0.2s ease;
+  
+  // Larger touch targets on mobile
+  @media (max-width: 768px) {
+    padding: var(--space-sm) var(--space-md);
+    font-size: 13px;
+    min-height: 44px;
+  }
   
   &:hover {
     color: var(--color-text-primary);
@@ -387,6 +482,10 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-sm);
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .info-item {
@@ -448,6 +547,13 @@
   cursor: pointer;
   transition: all 0.2s ease;
   
+  // Larger touch targets on mobile
+  @media (max-width: 768px) {
+    padding: var(--space-md);
+    font-size: 14px;
+    min-height: 48px;
+  }
+  
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -460,6 +566,12 @@
     &:hover:not(:disabled) {
       transform: translateY(-1px);
       box-shadow: 0 4px 12px rgba(0, 212, 170, 0.3);
+    }
+    
+    @media (max-width: 768px) {
+      &:active:not(:disabled) {
+        transform: scale(0.98);
+      }
     }
   }
   
@@ -497,4 +609,10 @@
   padding: 4px 8px;
   border-radius: var(--radius-sm);
   backdrop-filter: blur(4px);
+  
+  @media (max-width: 768px) {
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
 }
