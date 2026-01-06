@@ -164,13 +164,15 @@ export class MapComponent implements OnInit, OnDestroy {
           deckProps.getTooltip = (data: any) => {
             if (data && data.layer && data.object) {
               const object = data.object;
-              let text = '';
               if (object.polygonData) {
-                text = object.polygonData.name;
-              }
-              if (text) {
+                const grower = object.polygonData.grower || 'JV Farms';
+                const lot = object.polygonData.lot || 'Y-187A-TF13A';
+                const html = `<div style="line-height: 1.5;">
+                  <div><strong>Grower:</strong> ${grower}</div>
+                  <div><strong>Lot:</strong> ${lot}</div>
+                </div>`;
                 return {
-                  html: text,
+                  html: html,
                   style: {
                     'background-color': '#1a2332',
                     color: '#f1f5f9',
@@ -254,6 +256,8 @@ export class MapComponent implements OnInit, OnDestroy {
                       polygonData: {
                         id: feature.polygonData?.id || `polygon-${Date.now()}-${index}`,
                         name: feature.polygonData?.name || `Polygon ${index + 1}`,
+                        grower: feature.polygonData?.grower || 'JV Farms',
+                        lot: feature.polygonData?.lot || 'Y-187A-TF13A',
                         type: 'drawn',
                         editable: true,
                         isEdited: false,
@@ -406,6 +410,8 @@ export class MapComponent implements OnInit, OnDestroy {
               feature.polygonData = {
                 id: `drawn-${Date.now()}-${index}`,
                 name: `Polygon ${index + 1}`,
+                grower: 'JV Farms',
+                lot: 'Y-187A-TF13A',
                 type: 'drawn',
                 editable: true,
                 isEdited: false,
@@ -413,6 +419,8 @@ export class MapComponent implements OnInit, OnDestroy {
               };
             } else {
               feature.polygonData.editable = true;
+              if (!feature.polygonData.grower) feature.polygonData.grower = 'JV Farms';
+              if (!feature.polygonData.lot) feature.polygonData.lot = 'Y-187A-TF13A';
             }
           });
         }
@@ -462,6 +470,8 @@ export class MapComponent implements OnInit, OnDestroy {
         polygonData: {
           id: feature.polygonData?.id || feature.properties?.id || `drawn-${index + 1}`,
           name: feature.polygonData?.name || feature.properties?.name || `Polygon ${index + 1}`,
+          grower: feature.polygonData?.grower || feature.properties?.grower || 'JV Farms',
+          lot: feature.polygonData?.lot || feature.properties?.lot || 'Y-187A-TF13A',
           type: 'drawn',
           ...feature.polygonData,
           ...feature.properties
@@ -474,6 +484,8 @@ export class MapComponent implements OnInit, OnDestroy {
         polygonData: {
           id: item.polygonData?.id || `drawn-${index + 1}`,
           name: item.polygonData?.name || `Polygon ${index + 1}`,
+          grower: item.polygonData?.grower || 'JV Farms',
+          lot: item.polygonData?.lot || 'Y-187A-TF13A',
           type: 'drawn',
           ...item.polygonData
         }
@@ -718,6 +730,8 @@ export class MapComponent implements OnInit, OnDestroy {
         properties: {
           id: poly.polygonData?.id || `polygon-${index + 1}`,
           name: poly.polygonData?.name || `Polygon ${index + 1}`,
+          grower: poly.polygonData?.grower || 'JV Farms',
+          lot: poly.polygonData?.lot || 'Y-187A-TF13A',
           type: poly.polygonData?.type || 'drawn',
           createdAt: new Date().toISOString()
         },
