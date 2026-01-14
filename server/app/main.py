@@ -12,6 +12,7 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,6 +58,16 @@ TILES_DIR = DATA_DIR / "tiles"
 SOURCE_DIR = DATA_DIR / "source"
 VECTORS_DIR = DATA_DIR / "vectors"
 STATIC_DIR = Path("/app/static")
+
+# Enhancement queue / limits
+from collections import deque
+
+# Max concurrent enhancement jobs (can be overridden via settings)
+MAX_CONCURRENT_ENHANCE = getattr(settings, "max_concurrent_enhance", 1)
+# Max upload size in bytes (default 50 MB)
+MAX_UPLOAD_BYTES = getattr(settings, "max_upload_bytes", 50 * 1024 * 1024)
+active_enhance_jobs: set = set()
+pending_enhance_queue = deque()
 
 
 @app.get("/health")
@@ -285,8 +296,9 @@ def run_wow_job(
     max_age_days: int = 30,
     max_cloud_cover: float = 30.0,
     force_fetch: bool = False,
+    model: str = "realesrgan_x4",
 ):
-    """Background task to run WOW super-resolution (Real-ESRGAN x4 + Enhanced)."""
+    """Background task to run WOW super-resolution with selected model."""
     try:
         # Step 1: Smart fetch if needed
         if input_file is None and auto_fetch:
@@ -310,9 +322,15 @@ def run_wow_job(
                 "message"
             ] = f"✅ Using: {input_file.name} (cloud: {fetch_metadata.get('cloud_cover_pct', 'N/A')}%)"
 
+        # Get model display name
+        model_display = {
+            "realesrgan_x4": "Real-ESRGAN x4",
+            "realesrgan_anime": "Real-ESRGAN Anime 6B (text/plates)",
+        }.get(model, model)
+
         # Step 2: Run WOW SR
         sr_jobs[job_id]["status"] = "processing"
-        sr_jobs[job_id]["message"] = "Stage 1/2: Real-ESRGAN x4 (GAN upscaling)..."
+        sr_jobs[job_id]["message"] = f"Stage 1/2: {model_display} (GAN upscaling)..."
 
         from .wow_sr import process_wow_sr
 
@@ -320,6 +338,7 @@ def run_wow_job(
             input_tif=input_file,
             output_dir=output_dir,
             enhance_crops=enhance_crops,
+            model=model,
         )
 
         sr_jobs[job_id]["status"] = "tiling"
@@ -520,6 +539,140 @@ async def start_wow_sr(request: WowRequest, background_tasks: BackgroundTasks):
         status="queued",
         message=msg,
     )
+
+
+@app.post("/api/enhance")
+async def enhance_image_upload(
+    image: UploadFile = File(...),
+    model: str = Form("realesrgan_x4"),
+    background_tasks: BackgroundTasks = None,
+):
+    """
+    Upload an image (jpg/png/tiff) and queue enhancement with selected model.
+
+    Models available:
+    - realesrgan_x4: General photos (best quality, 4x upscale)
+    - realesrgan_x2: Quick upscaling (less hallucination, 2x upscale)
+    - realesrgan_anime: Sharp edges, optimized for text/plates (4x upscale)
+
+    Returns immediately with a job_id. Poll `/api/sr/{job_id}` for progress and completion.
+    """
+    # Validate model
+    valid_models = ["realesrgan_x4", "realesrgan_anime"]
+    if model not in valid_models:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid model. Choose from: {valid_models}"
+        )
+
+    try:
+        # Read uploaded bytes (we validate size here)
+        content = await image.read()
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Upload exceeds maximum allowed size of {MAX_UPLOAD_BYTES // (1024*1024)} MB",
+            )
+
+        # Prepare job and paths
+        job_id = f"wow_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        output_dir = DATA_DIR / "wow" / job_id
+        upload_dir = DATA_DIR / "uploads" / job_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        upload_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save uploaded file
+        uploaded_path = upload_dir / image.filename
+        with open(uploaded_path, "wb") as f:
+            f.write(content)
+
+        # Register job (queued initially)
+        sr_jobs[job_id] = {
+            "status": "queued",
+            "message": "Enhancement queued",
+            "input_file": str(uploaded_path),
+            "output_dir": str(output_dir),
+            "model": model,
+            "created_at": datetime.now().isoformat(),
+        }
+
+        # Prepare payload (now includes model)
+        job_payload = (job_id, uploaded_path, output_dir, True, model)
+
+        # If capacity, start immediately; otherwise enqueue
+        if len(active_enhance_jobs) < MAX_CONCURRENT_ENHANCE:
+            active_enhance_jobs.add(job_id)
+            sr_jobs[job_id]["status"] = "processing"
+            sr_jobs[job_id]["message"] = "Enhancement starting"
+            # schedule wrapper via background tasks so it runs in threadpool
+            background_tasks.add_task(
+                run_wow_job_wrapper, job_id, uploaded_path, output_dir, True, model
+            )
+        else:
+            pending_enhance_queue.append(job_payload)
+            sr_jobs[job_id]["status"] = "queued"
+            sr_jobs[job_id]["message"] = "Queued due to concurrency limits"
+
+        return {
+            "job_id": job_id,
+            "status": sr_jobs[job_id]["status"],
+            "message": sr_jobs[job_id]["message"],
+            "model": model,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Enhance upload failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def run_wow_job_wrapper(
+    job_id: str,
+    input_path: Path,
+    output_dir: Path,
+    enhance_crops: bool,
+    model: str = "realesrgan_x4",
+):
+    """
+    Wrapper around run_wow_job to manage active job set and start queued jobs when done.
+    This runs in background tasks (thread).
+    """
+    try:
+        # Ensure job marked active
+        active_enhance_jobs.add(job_id)
+        sr_jobs[job_id]["status"] = "processing"
+        sr_jobs[job_id]["message"] = "Running enhancement"
+
+        # Run the actual job (re-use existing run_wow_job implementation)
+        run_wow_job(
+            job_id, input_path, output_dir, enhance_crops, auto_fetch=False, model=model
+        )
+
+    except Exception as e:
+        logger.error(f"Wrapper job {job_id} failed: {e}")
+        sr_jobs[job_id]["status"] = "failed"
+        sr_jobs[job_id]["message"] = str(e)
+    finally:
+        # Remove from active set
+        if job_id in active_enhance_jobs:
+            active_enhance_jobs.remove(job_id)
+
+        # If there are pending jobs, start next one in a background thread
+        if pending_enhance_queue:
+            next_payload = pending_enhance_queue.popleft()
+            # Unpack 5 elements now (includes model)
+            next_jid, next_inp, next_outp, next_enh, next_model = next_payload
+            active_enhance_jobs.add(next_jid)
+            sr_jobs[next_jid]["status"] = "processing"
+            sr_jobs[next_jid]["message"] = "Starting from queue"
+            import threading
+
+            thread = threading.Thread(
+                target=run_wow_job_wrapper,
+                args=(next_jid, next_inp, next_outp, next_enh, next_model),
+            )
+            thread.daemon = True
+            thread.start()
 
 
 @app.get("/tiles_wow/{z}/{x}/{y}.png")

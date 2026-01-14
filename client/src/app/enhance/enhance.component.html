@@ -1,0 +1,366 @@
+<div class="enhance-wrapper">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-content">
+      <div class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="1.5">
+          <path d="M12 3v18M3 12h18M5.5 5.5l13 13M5.5 18.5l13-13" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+        <h1>Real-ESRGAN Enhancer</h1>
+      </div>
+      <a routerLink="/" class="nav-link">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+          <path d="M2 12h20"></path>
+        </svg>
+        Back to Map
+      </a>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- Upload Section -->
+    <section class="upload-section">
+      <div
+        class="drop-zone"
+        [class.dragging]="isDragging()"
+        [class.has-image]="hasImage()"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave($event)"
+        (drop)="onDrop($event)"
+        (click)="fileInput.click()"
+      >
+        @if (!hasImage()) {
+          <div class="drop-content">
+            <div class="drop-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+            </div>
+            <h3>Drop your image here</h3>
+            <p>or click to browse</p>
+            <span class="file-types">Supports: JPG, PNG, WebP, TIFF (max 50MB)</span>
+          </div>
+        } @else {
+          <div class="selected-file">
+            <div class="file-preview">
+              @if (previewUrl()) {
+                <img [src]="previewUrl()" alt="Preview" />
+              }
+            </div>
+            <div class="file-info">
+              <span class="file-name">{{ selectedFile()!.name }}</span>
+              <span class="file-size">{{ formatFileSize(selectedFile()!.size) }}</span>
+            </div>
+            <button class="btn-change" (click)="$event.stopPropagation()">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              Change
+            </button>
+          </div>
+        }
+        <input
+          #fileInput
+          type="file"
+          accept="image/*"
+          (change)="onFileSelect($event)"
+          hidden
+        />
+      </div>
+
+      <!-- Model Selector -->
+      <div class="model-selector">
+        <label class="model-label">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"></path>
+            <path d="M2 17l10 5 10-5"></path>
+            <path d="M2 12l10 5 10-5"></path>
+          </svg>
+          Select Model
+        </label>
+        <div class="model-options">
+          @for (model of availableModels; track model.id) {
+            <label 
+              class="model-option" 
+              [class.selected]="selectedModel() === model.id"
+              [class.text-optimized]="model.id === 'realesrgan_anime'"
+            >
+              <input 
+                type="radio" 
+                name="model" 
+                [value]="model.id"
+                [checked]="selectedModel() === model.id"
+                (change)="onModelChange(model.id)"
+              />
+              <div class="model-content">
+                <div class="model-header">
+                  <span class="model-name">{{ model.name }}</span>
+                  <span class="model-scale">{{ model.scale }}×</span>
+                </div>
+                <span class="model-description">{{ model.description }}</span>
+                <span class="model-best-for">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <polyline points="9 11 12 14 22 4"></polyline>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                  </svg>
+                  {{ model.bestFor }}
+                </span>
+              </div>
+              @if (model.id === 'realesrgan_anime') {
+                <span class="text-badge">Best for text/plates</span>
+              }
+            </label>
+          }
+        </div>
+      </div>
+
+      <!-- Error Message -->
+      @if (error()) {
+        <div class="error-message">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span>{{ error() }}</span>
+        </div>
+      }
+
+      <!-- Action Buttons -->
+      <div class="action-buttons">
+        <button class="btn btn--secondary" (click)="reset()" [disabled]="!hasImage()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+          Reset
+        </button>
+        <button 
+          class="btn btn--primary btn--enhance"
+          (click)="processImage()"
+          [disabled]="!canProcess()"
+        >
+          @if (isProcessing()) {
+            <div class="spinner"></div>
+            Processing...
+          } @else {
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            Enhance with {{ getSelectedModelInfo()?.name || 'Real-ESRGAN' }}
+          }
+        </button>
+      </div>
+
+      <!-- QR/OCR Section -->
+      @if (hasImage()) {
+        <div class="qr-ocr-section">
+          <div class="qr-ocr-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>Read VIN / Serial</span>
+          </div>
+          
+          <p class="qr-ocr-description">
+            Automatically extract serial numbers from QR codes or license plates using OCR.
+          </p>
+
+          <button 
+            class="btn btn--qr-ocr"
+            (click)="handleReadQrOrOcr()"
+            [disabled]="isReadingQrOcr() || isProcessing()"
+          >
+            @if (isReadingQrOcr()) {
+              <div class="spinner spinner--small"></div>
+              Reading...
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.3-4.3"></path>
+              </svg>
+              Read QR / OCR
+            }
+          </button>
+
+          <!-- Status Message -->
+          @if (qrOcrStatus()) {
+            <div class="qr-ocr-status" [class.success]="qrOcrStatus().startsWith('✅')" 
+                 [class.error]="qrOcrStatus().startsWith('❌')"
+                 [class.warning]="qrOcrStatus().startsWith('⚠️')">
+              {{ qrOcrStatus() }}
+            </div>
+          }
+
+          <!-- Extracted Value Display -->
+          @if (extractedValue()) {
+            <div class="extracted-value-container">
+              <label class="extracted-label">
+                @if (extractedSource() === 'qr') {
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="3" width="7" height="7"></rect>
+                    <rect x="14" y="14" width="7" height="7"></rect>
+                    <rect x="3" y="14" width="7" height="7"></rect>
+                  </svg>
+                  QR Code Value
+                } @else {
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                    <line x1="16" y1="13" x2="8" y2="13"></line>
+                    <line x1="16" y1="17" x2="8" y2="17"></line>
+                    <polyline points="10 9 9 9 8 9"></polyline>
+                  </svg>
+                  Extracted Serial/PIN
+                }
+              </label>
+              <div class="extracted-value-row">
+                <input 
+                  type="text" 
+                  class="extracted-input" 
+                  [value]="extractedValue()" 
+                  readonly 
+                />
+                <button class="btn btn--copy" (click)="copyToClipboard()">
+                  @if (copyFeedback()) {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    {{ copyFeedback() }}
+                  } @else {
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="2">
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    Copy
+                  }
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </section>
+
+    <!-- Progress Section -->
+    @if (isProcessing()) {
+      <section class="progress-section">
+        <div class="progress-header">
+          <span class="progress-stage">{{ stageLabel() }}</span>
+          <span class="progress-percent">{{ progressPercent() }}%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="progressPercent()">
+            <div class="progress-glow"></div>
+          </div>
+        </div>
+        <p class="progress-message">{{ progress().message }}</p>
+      </section>
+    }
+
+    <!-- Results Section -->
+    @if (result() && enhancedUrl()) {
+      <section class="results-section">
+        <h2>
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          Enhancement Complete!
+        </h2>
+
+        <!-- Comparison View -->
+        <div class="comparison-container">
+          <div class="image-card">
+            <div class="image-label">Original</div>
+            <div class="image-wrapper">
+              <img [src]="previewUrl()" alt="Original" />
+            </div>
+            <div class="image-meta">
+              {{ result()!.original_size.width }} × {{ result()!.original_size.height }}
+            </div>
+          </div>
+
+          <div class="arrow-container">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+            <span class="scale-badge">{{ result()!.scale_factor }}×</span>
+          </div>
+
+          <div class="image-card enhanced">
+            <div class="image-label">Enhanced</div>
+            <div class="image-wrapper">
+              <img [src]="enhancedUrl()" alt="Enhanced" />
+            </div>
+            <div class="image-meta">
+              {{ result()!.enhanced_size.width }} × {{ result()!.enhanced_size.height }}
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Processing Time</span>
+            <span class="stat-value">{{ result()!.processing_time_seconds.toFixed(1) }}s</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Scale Factor</span>
+            <span class="stat-value">{{ result()!.scale_factor }}×</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Output Resolution</span>
+            <span class="stat-value mono">{{ result()!.enhanced_size.width }}×{{ result()!.enhanced_size.height }}</span>
+          </div>
+        </div>
+
+        <!-- Download Button -->
+        <button class="btn btn--download" (click)="downloadEnhanced()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Download Enhanced Image
+        </button>
+      </section>
+    }
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <span>Powered by Real-ESRGAN • FieldIn</span>
+  </footer>
+</div>
+

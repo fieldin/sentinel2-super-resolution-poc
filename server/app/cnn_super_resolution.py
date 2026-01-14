@@ -23,18 +23,24 @@ import torch.nn.functional as F
 
 
 # Model configurations
+# Note: x2 models (RealESRGAN_x2plus) use USM preprocessing requiring 12 input channels
+# Only models with standard 3-channel RGB input are supported here
 MODELS = {
     "realesrgan_x4": {
         "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.1.0/RealESRGAN_x4plus.pth",
         "scale": 4,
         "channels": 64,
         "blocks": 23,
+        "num_in_ch": 3,
+        "description": "General photos (best quality)",
     },
-    "realesrgan_x2": {
-        "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.1/RealESRGAN_x2plus.pth",
-        "scale": 2,
+    "realesrgan_anime": {
+        "url": "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth",
+        "scale": 4,
         "channels": 64,
-        "blocks": 23,
+        "blocks": 6,  # Anime 6B model uses 6 RRDB blocks
+        "num_in_ch": 3,
+        "description": "Sharp edges (best for text/plates)",
     },
 }
 
@@ -140,7 +146,7 @@ class RRDBNet(nn.Module):
         feat = self.lrelu(
             self.conv_up1(F.interpolate(feat, scale_factor=2, mode="nearest"))
         )
-        
+
         # Second upsample (only for x4)
         if self.scale == 4:
             feat = self.lrelu(
@@ -155,8 +161,13 @@ class RRDBNet(nn.Module):
 class RealESRGAN:
     """Real-ESRGAN inference wrapper."""
 
-    def __init__(self, scale: int = 4, device: str = None, tile_size: int = 256):
-        self.scale = scale
+    def __init__(
+        self,
+        scale: int = 4,
+        device: str = None,
+        tile_size: int = 256,
+        model_name: str = None,
+    ):
         self.tile_size = tile_size
         self.tile_pad = 10
 
@@ -167,17 +178,28 @@ class RealESRGAN:
 
         print(f"   Device: {self.device}")
 
-        model_name = f"realesrgan_x{scale}"
-        weights_path = download_weights(model_name)
+        # Determine model name
+        if model_name is None:
+            model_name = f"realesrgan_x{scale}"
+
+        if model_name not in MODELS:
+            raise ValueError(
+                f"Unknown model: {model_name}. Available: {list(MODELS.keys())}"
+            )
 
         config = MODELS[model_name]
+        self.scale = config["scale"]
+        self.model_name = model_name
+
+        weights_path = download_weights(model_name)
+
         self.model = RRDBNet(
             num_in_ch=3,
             num_out_ch=3,
             num_feat=config["channels"],
             num_block=config["blocks"],
             num_grow_ch=32,
-            scale=scale,
+            scale=self.scale,
         )
 
         state_dict = torch.load(weights_path, map_location=self.device)
@@ -190,7 +212,7 @@ class RealESRGAN:
         self.model.eval()
         self.model.to(self.device)
 
-        print(f"   ✅ Loaded Real-ESRGAN x{scale}")
+        print(f"   ✅ Loaded {model_name} (x{self.scale})")
 
     @torch.no_grad()
     def enhance(self, img: np.ndarray) -> np.ndarray:
@@ -386,4 +408,3 @@ if __name__ == "__main__":
 
     print(f"\nOutput: {result_path}")
     print(f"Metadata: {metadata}")
-

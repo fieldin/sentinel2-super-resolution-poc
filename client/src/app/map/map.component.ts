@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import * as _ from 'lodash';
 import L from 'leaflet';
@@ -24,7 +25,7 @@ const USER_LOCATION = {
 @Component({
   selector: 'app-map',
   standalone: true,
-  imports: [CommonModule, FormsModule, FldMapModule],
+  imports: [CommonModule, FormsModule, RouterModule, FldMapModule],
   templateUrl: './map.component.html',
   styleUrls: ['./map.component.scss']
 })

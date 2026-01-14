@@ -1,0 +1,40 @@
+redeploy local docker:
+cd /home/michael/fieldin/up42-sentinel-poc && docker rm -f up42-poc >/dev/null 2>&1 || true && docker build -t up42-poc:local -f Dockerfile . && docker run -d -p 8080:8080 --name up42-poc --env-file .env -v /home/michael/fieldin/up42-sentinel-poc/data:/app/data up42-poc:local
+
+
+deploy to keberctl
+cd /home/michael/fieldin/up42-sentinel-poc && ./deploy.sh latest 2>&1
+
+start the fetch:
+# Start the services
+make up
+
+# Check it's running
+curl http://localhost:8080/health
+
+# Run the pipeline
+make pipeline
+
+============================================
+🚀 Running Full Pipeline via API
+============================================
+
+Pipeline: Fetch → Tiles → WOW SR → SR Tiles
+
+{
+  "job_id": "pipeline_20260114_141026",
+  "status": "queued",
+  "message": "🚀 Pipeline started: Fetch → Tiles → WOW SR → SR Tiles",
+  "steps": [
+    "fetch",
+    "original_tiles",
+    "super_resolution",
+    "sr_tiles"
+  ]
+}
+
+Monitor progress: make pipeline-status JOB=<job_id>
+
+make pipeline-watch JOB=pipeline_20260114_140807
+
+

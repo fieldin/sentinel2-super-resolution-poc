@@ -50,7 +50,7 @@ COPY --from=client-builder /client/dist/sentinel-map/browser /app/static
 # Copy config files
 COPY config/ /app/config/
 
-# Copy pre-generated data (tiles, etc.) if available
+# Copy pre-generated tiles and vectors (excludes large .tif source files via .dockerignore)
 COPY data/ /app/data/
 
 # Expose port

@@ -1,0 +1,36 @@
+# Ignore large source GeoTIFF files (tiles and metadata are kept)
+data/source/*.tif
+data/wow/
+data/sr/
+*.geotiff
+
+# Node modules (we install fresh in container)
+client/node_modules/
+node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Git
+.git/
+.gitignore
+
+# Docker
+.dockerignore
+docker-compose.yml
+
+# K8s configs (not needed in image)
+k8s/
+
+# Build artifacts
+*.log
+.DS_Store
+

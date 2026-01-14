@@ -29,19 +29,27 @@ def apply_wow_sr(
     input_path: Path,
     output_path: Path,
     enhance_crops: bool = True,
+    model: str = "realesrgan_x4",
 ) -> Tuple[Path, dict]:
     """
-    Apply WOW Super-Resolution: Real-ESRGAN x4 with enhanced post-processing.
+    Apply WOW Super-Resolution with selected model and enhanced post-processing.
+
+    Models:
+    - realesrgan_x4: General photos (best quality, 4x upscale)
+    - realesrgan_anime: Sharp edges, optimized for text/plates (4x upscale)
 
     Pipeline:
-    1. Real-ESRGAN x4 - High-quality GAN upscaling
+    1. Selected Real-ESRGAN model - GAN upscaling
     2. Post-processing - CLAHE + unsharp mask + vegetation boost
-
-    Total scale: x4 (10m → 2.5m effective resolution)
     """
-    print(f"\n🌟 WOW Super-Resolution (Real-ESRGAN x4 + Enhanced)")
+    model_display = {
+        "realesrgan_x4": "Real-ESRGAN x4",
+        "realesrgan_anime": "Real-ESRGAN Anime 6B (text/plates)"
+    }.get(model, model)
+    
+    print(f"\n🌟 WOW Super-Resolution ({model_display} + Enhanced)")
     print(f"   Input: {input_path}")
-    print(f"   Strategy: High-quality GAN upscaling with crop optimization")
+    print(f"   Model: {model_display}")
 
     input_path = Path(input_path)
     transform = None
@@ -79,15 +87,16 @@ def apply_wow_sr(
     pipeline_stages = []
 
     # ============================================================
-    # Stage 1: Real-ESRGAN x4 (High-Quality GAN Upscaling)
+    # Stage 1: Real-ESRGAN Model (GAN Upscaling)
     # ============================================================
-    print(f"\n   🎨 Stage 1/2: Real-ESRGAN x4 (GAN upscaling)...")
-    esrgan = RealESRGAN(scale=4, tile_size=256)
+    print(f"\n   🎨 Stage 1/2: {model_display} (GAN upscaling)...")
+    esrgan = RealESRGAN(model_name=model, tile_size=256)
     sr_bgr = esrgan.enhance(img_bgr)
-    print(f"      → {sr_bgr.shape[1]}x{sr_bgr.shape[0]} pixels")
+    scale = esrgan.scale
+    print(f"      → {sr_bgr.shape[1]}x{sr_bgr.shape[0]} pixels (scale: {scale}x)")
     del esrgan
     pipeline_stages.append(
-        {"model": "RealESRGAN_x4", "purpose": "High-quality GAN upscaling"}
+        {"model": model, "scale": scale, "purpose": "GAN upscaling"}
     )
 
     # Convert to RGB
@@ -104,11 +113,11 @@ def apply_wow_sr(
         )
 
     final_shape = output_rgb.shape[:2]
-    actual_scale = 4
+    actual_scale = scale  # Use the scale from the selected model
 
     print(f"\n   📊 Final size: {output_rgb.shape[1]}x{output_rgb.shape[0]} pixels")
     print(f"   📊 Total scale: x{actual_scale}")
-    print(f"   📊 Pipeline: Real-ESRGAN x4 + Enhanced")
+    print(f"   📊 Pipeline: {model_display} + Enhanced")
 
     # Save output
     output_path = Path(output_path)
@@ -204,6 +213,7 @@ def process_wow_sr(
     input_tif: Path,
     output_dir: Path,
     enhance_crops: bool = True,
+    model: str = "realesrgan_x4",
 ) -> dict:
     """
     Process Sentinel-2 imagery with WOW super-resolution.
@@ -212,6 +222,7 @@ def process_wow_sr(
         input_tif: Path to Sentinel-2 GeoTIFF
         output_dir: Output directory
         enhance_crops: Apply crop visibility enhancement
+        model: SR model to use (realesrgan_x4, realesrgan_anime)
 
     Returns:
         Dictionary with output paths and metadata
@@ -226,6 +237,7 @@ def process_wow_sr(
         input_path=input_tif,
         output_path=wow_tif,
         enhance_crops=enhance_crops,
+        model=model,
     )
 
     result = {

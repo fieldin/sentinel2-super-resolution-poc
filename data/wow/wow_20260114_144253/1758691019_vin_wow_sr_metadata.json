@@ -1,0 +1,41 @@
+{
+  "timestamp": "20260114_144440",
+  "input": "/app/data/uploads/wow_20260114_144253/1758691019_vin.jpg",
+  "outputs": {
+    "sr_tif": null,
+    "sr_png": "/app/data/wow/wow_20260114_144253/1758691019_vin_wow_sr.png"
+  },
+  "sr_metadata": {
+    "input_file": "/app/data/uploads/wow_20260114_144253/1758691019_vin.jpg",
+    "output_file": "/app/data/wow/wow_20260114_144253/1758691019_vin_wow_sr.png",
+    "scale": 4,
+    "pipeline": "Real-ESRGAN x4 + Enhanced",
+    "stages": [
+      {
+        "model": "realesrgan_x4",
+        "scale": 4,
+        "purpose": "GAN upscaling"
+      },
+      {
+        "post_processing": "Enhanced",
+        "purpose": "Crop visibility"
+      }
+    ],
+    "enhancements": [
+      "CLAHE local contrast",
+      "Unsharp mask",
+      "Vegetation boost"
+    ],
+    "original_size": [
+      576,
+      432
+    ],
+    "output_size": [
+      2304,
+      1728
+    ],
+    "original_resolution_m": 10.0,
+    "effective_resolution_m": 2.5,
+    "optimized_for": "z18_crop_visibility"
+  }
+}
