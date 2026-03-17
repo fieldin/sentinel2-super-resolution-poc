@@ -52,6 +52,7 @@ export class MapComponent implements OnInit, OnDestroy {
   private srTileLayer: L.TileLayer | null = null;
   private config: AppConfig | null = null;
   private tileset: TilesetMetadata | null = null;
+  private wowTileset: TilesetMetadata | null = null;
   private tileEndpoints: any = null;
 
   // Computed values
@@ -129,6 +130,7 @@ export class MapComponent implements OnInit, OnDestroy {
         this.wowTilesAvailable.set(metadata.wowTilesAvailable || false);
         this.sourceInfo.set(metadata.source);
         this.tileset = metadata.tileset;
+        this.wowTileset = metadata.wowTileset || null;
         this.tileEndpoints = metadata.tileEndpoints;
 
         this.loading.set(false);
@@ -521,10 +523,11 @@ export class MapComponent implements OnInit, OnDestroy {
       tileUrl = this.tileEndpoints.original;
     }
 
-    // Get bounds and zoom from tileset
-    const minZoom = this.tileset?.minzoom || 10;
-    const maxNativeZoom = this.tileset?.maxzoom || 18;
-    const bounds = this.tileset?.bounds;
+    // Get bounds and zoom from tileset (use wowTileset when WOW tiles active)
+    const activeTileset = (this.useWowTiles() && this.wowTileset) ? this.wowTileset : this.tileset;
+    const minZoom = activeTileset?.minzoom || 10;
+    const maxNativeZoom = activeTileset?.maxzoom || 18;
+    const bounds = activeTileset?.bounds;
 
     // Create tile layer options
     // maxNativeZoom = actual tile zoom level available

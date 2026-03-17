@@ -133,6 +133,13 @@ async def get_metadata():
         wow_tiles_dir.glob("*/*/*.png")
     )
 
+    # Load WOW tileset metadata if available
+    wow_tileset_path = wow_tiles_dir / "tileset.json"
+    if wow_tileset_path.exists():
+        result["wowTileset"] = read_json(wow_tileset_path)
+    else:
+        result["wowTileset"] = None
+
     # Add tile endpoints
     result["tileEndpoints"] = {
         "original": "/tiles/{z}/{x}/{y}.png",
@@ -178,7 +185,7 @@ async def get_tile(z: int, x: int, y: int):
         tile_path,
         media_type="image/png",
         headers={
-            "Cache-Control": "public, max-age=86400",  # Cache for 1 day
+            "Cache-Control": "no-cache, must-revalidate",
             "Access-Control-Allow-Origin": "*",
         },
     )
@@ -355,6 +362,7 @@ def run_wow_job(
                 tiles_dir=wow_tiles_dir,
                 min_zoom=settings.tile_min_zoom,
                 max_zoom=min(settings.tile_max_zoom + 2, 20),  # Higher zoom for SR
+                tile_template="/tiles_wow/{z}/{x}/{y}.png",
             )
             result["tiles_dir"] = str(wow_tiles_dir)
 
@@ -688,7 +696,7 @@ async def get_wow_tile(z: int, x: int, y: int):
         tile_path,
         media_type="image/png",
         headers={
-            "Cache-Control": "public, max-age=86400",
+            "Cache-Control": "no-cache, must-revalidate",
             "Access-Control-Allow-Origin": "*",
         },
     )
@@ -1119,17 +1127,20 @@ def run_pipeline_job(
 
             from .tiling import process_raster_to_tiles
 
-            # Use appropriate tiles directory based on SR type
+            # Use appropriate tiles directory and template based on SR type
             if sr_type == "wow":
                 sr_tiles_dir = DATA_DIR / "tiles_wow"
+                sr_tile_template = "/tiles_wow/{z}/{x}/{y}.png"
             else:
                 sr_tiles_dir = DATA_DIR / "tiles_sr"
+                sr_tile_template = "/tiles_sr/{z}/{x}/{y}.png"
 
             sr_tiles_metadata = process_raster_to_tiles(
                 input_path=Path(sr_output),
                 tiles_dir=sr_tiles_dir,
                 min_zoom=min_zoom,
                 max_zoom=min(max_zoom + 2, 20),  # Higher zoom for SR
+                tile_template=sr_tile_template,
             )
 
             steps_completed.append(
@@ -1286,7 +1297,7 @@ async def get_sr_tile(z: int, x: int, y: int):
         tile_path,
         media_type="image/png",
         headers={
-            "Cache-Control": "public, max-age=86400",
+            "Cache-Control": "no-cache, must-revalidate",
             "Access-Control-Allow-Origin": "*",
         },
     )

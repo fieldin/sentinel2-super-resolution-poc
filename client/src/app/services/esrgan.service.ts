@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpEvent, HttpEventType, HttpProgressEvent } from '@angular/common/http';
-import { Observable, Subject, BehaviorSubject, interval } from 'rxjs';
-import { map, tap, filter, switchMap, take } from 'rxjs/operators';
+import { Observable, BehaviorSubject } from 'rxjs';
 
 export interface EnhanceProgress {
   stage: 'uploading' | 'processing' | 'downloading' | 'complete' | 'error';
@@ -180,69 +179,6 @@ export class EsrganService {
         }
       });
     });
-  }
-
-  private handleProgress(event: HttpEvent<any>): void {
-    switch (event.type) {
-      case HttpEventType.UploadProgress:
-        const uploadProgress = event as HttpProgressEvent;
-        if (uploadProgress.total) {
-          const percent = Math.round(100 * uploadProgress.loaded / uploadProgress.total);
-          this.progressSubject.next({
-            stage: 'uploading',
-            progress: percent,
-            message: `Uploading image... ${percent}%`
-          });
-          
-          // When upload completes, switch to processing stage
-          if (percent === 100) {
-            this.progressSubject.next({
-              stage: 'processing',
-              progress: 0,
-              message: 'Processing with Real-ESRGAN...'
-            });
-            
-            // Simulate processing progress (server doesn't send progress during processing)
-            this.simulateProcessingProgress();
-          }
-        }
-        break;
-      
-      case HttpEventType.DownloadProgress:
-        const downloadProgress = event as HttpProgressEvent;
-        if (downloadProgress.total) {
-          const percent = Math.round(100 * downloadProgress.loaded / downloadProgress.total);
-          this.progressSubject.next({
-            stage: 'downloading',
-            progress: percent,
-            message: `Receiving result... ${percent}%`
-          });
-        }
-        break;
-    }
-  }
-
-  private simulateProcessingProgress(): void {
-    let progress = 0;
-    const interval = setInterval(() => {
-      const current = this.progressSubject.getValue();
-      
-      // Stop if we've moved past processing stage
-      if (current.stage !== 'processing') {
-        clearInterval(interval);
-        return;
-      }
-      
-      // Slowly increment progress to simulate work
-      progress += Math.random() * 5;
-      if (progress > 95) progress = 95; // Cap at 95% until real completion
-      
-      this.progressSubject.next({
-        stage: 'processing',
-        progress: Math.round(progress),
-        message: `Processing with Real-ESRGAN... ${Math.round(progress)}%`
-      });
-    }, 500);
   }
 
   /**

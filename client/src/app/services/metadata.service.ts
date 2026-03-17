@@ -38,6 +38,7 @@ export interface MetadataResponse {
   tilesAvailable: boolean;
   srTilesAvailable?: boolean;
   wowTilesAvailable?: boolean;
+  wowTileset?: TilesetMetadata | null;
   tileEndpoints?: TileEndpoints;
   vectorsAvailable?: boolean;
   zonesAvailable?: boolean;

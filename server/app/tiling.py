@@ -227,7 +227,8 @@ def process_raster_to_tiles(
     input_path: Path,
     tiles_dir: Path,
     min_zoom: int = 10,
-    max_zoom: int = 16
+    max_zoom: int = 16,
+    tile_template: str = "/tiles/{z}/{x}/{y}.png"
 ) -> dict:
     """
     Complete pipeline: check CRS, reproject if needed, generate tiles.
@@ -237,11 +238,24 @@ def process_raster_to_tiles(
         tiles_dir: Output directory for tiles
         min_zoom: Minimum zoom level
         max_zoom: Maximum zoom level
+        tile_template: URL template for tile serving endpoint
         
     Returns:
         Tileset metadata dictionary
     """
     logger.info(f"Processing raster to tiles: {input_path}")
+    
+    # Clean old tiles before regenerating
+    if tiles_dir.exists():
+        import shutil
+        for child in tiles_dir.iterdir():
+            if child.is_dir() and child.name.isdigit():
+                logger.info(f"Removing old zoom directory: {child}")
+                shutil.rmtree(child)
+        tileset_json = tiles_dir / "tileset.json"
+        if tileset_json.exists():
+            tileset_json.unlink()
+            logger.info(f"Removed old tileset.json")
     
     # Get raster info
     info = get_raster_info(input_path)
@@ -268,7 +282,8 @@ def process_raster_to_tiles(
         tiles_dir,
         info.bounds_4326,
         min_zoom,
-        max_zoom
+        max_zoom,
+        tile_template=tile_template
     )
     
     return metadata

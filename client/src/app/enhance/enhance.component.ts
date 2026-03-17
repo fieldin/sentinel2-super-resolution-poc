@@ -251,7 +251,7 @@ export class EnhanceComponent implements OnDestroy {
   async handleReadQrOrOcr(): Promise<void> {
     const file = this.selectedFile();
     const previewDataUrl = this.previewUrl();
-    
+
     if (!file && !previewDataUrl) {
       this.qrOcrStatus.set('❌ No image loaded');
       return;
@@ -273,9 +273,9 @@ export class EnhanceComponent implements OnDestroy {
       // Step 1: Try QR code first (fast)
       this.qrOcrStatus.set('🔍 Decoding QR code...');
       console.log('[Enhance] Step 1: Attempting QR decode...');
-      
+
       const qrResult = await this.qrOcrService.decodeQrFromImage(imageSource);
-      
+
       if (qrResult) {
         // QR success!
         this.extractedValue.set(qrResult);
@@ -289,7 +289,7 @@ export class EnhanceComponent implements OnDestroy {
       // Step 2: QR failed, try OCR on current image
       this.qrOcrStatus.set('🔠 QR not found, running OCR...');
       console.log('[Enhance] Step 2: QR not found, running OCR on current image...');
-      
+
       let ocrResult = await this.qrOcrService.runOcr(imageSource);
       let serial = this.qrOcrService.extractSerial(ocrResult.text, ocrResult.words);
 
@@ -315,12 +315,12 @@ export class EnhanceComponent implements OnDestroy {
         try {
           // Use the Anime 6B model which is best for text/plates
           const enhanceResult = await this.enhanceForOcr(file!);
-          
+
           if (enhanceResult) {
             // Run OCR on enhanced image
             this.qrOcrStatus.set('🔠 Running OCR on enhanced image...');
             console.log('[Enhance] Running OCR on enhanced image...');
-            
+
             ocrResult = await this.qrOcrService.runOcr(enhanceResult);
             serial = this.qrOcrService.extractSerial(ocrResult.text, ocrResult.words);
 
@@ -393,7 +393,7 @@ export class EnhanceComponent implements OnDestroy {
       await navigator.clipboard.writeText(value);
       this.copyFeedback.set('Copied!');
       console.log('[Enhance] Copied to clipboard:', value);
-      
+
       // Clear feedback after 2 seconds
       setTimeout(() => {
         this.copyFeedback.set(null);
@@ -401,7 +401,7 @@ export class EnhanceComponent implements OnDestroy {
     } catch (error) {
       console.error('[Enhance] Clipboard write failed:', error);
       this.copyFeedback.set('Copy failed');
-      
+
       // Fallback: select the text (if using an input field)
       setTimeout(() => {
         this.copyFeedback.set(null);

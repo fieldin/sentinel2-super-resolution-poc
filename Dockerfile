@@ -3,6 +3,7 @@
 FROM node:20-alpine AS client-builder
 
 WORKDIR /client
+COPY client/.npmrc ./
 COPY client/package*.json ./
 RUN npm ci
 COPY client/ ./
@@ -21,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   wget \
   git \
   curl \
+  nginx \
   && rm -rf /var/lib/apt/lists/*
 
 # Set GDAL environment
@@ -53,13 +55,19 @@ COPY config/ /app/config/
 # Copy pre-generated tiles and vectors (excludes large .tif source files via .dockerignore)
 COPY data/ /app/data/
 
-# Expose port
-EXPOSE 8080
+# SSL certs and nginx config
+COPY ./fieldin.crt /certs/fieldin.crt
+COPY ./fieldin.key /certs/fieldin.key
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
-# Health check
+# Expose HTTPS port
+EXPOSE 443
+
+# Health check against uvicorn directly
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
 
-# Default command - run server
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["/app/entrypoint.sh"]
 
