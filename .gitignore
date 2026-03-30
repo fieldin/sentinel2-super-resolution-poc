@@ -9,6 +9,8 @@ __pycache__/
 .Python
 venv/
 .venv/
+fieldin.crt
+fieldin.key
 
 # Data (runtime outputs)
 data/source/

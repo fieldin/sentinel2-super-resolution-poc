@@ -37,7 +37,7 @@ export class MapComponent implements OnInit, OnDestroy {
   wowTilesAvailable = signal(false);
   isMapReady = signal(false);
 
-  opacity = signal(80);
+  opacity = signal(100);
   currentZoom = signal(12);
   useWowTiles = signal(true);
   drawnPolygons = signal<any[]>([]);
@@ -59,10 +59,16 @@ export class MapComponent implements OnInit, OnDestroy {
   formattedAcquisitionDate = computed(() => {
     const source = this.sourceInfo();
     if (!source?.acquisition_date) return 'N/A';
-    return new Date(source.acquisition_date).toLocaleDateString('en-US', {
+    const d = new Date(source.acquisition_date);
+    return d.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
+    }) + ', ' + d.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'UTC',
+      timeZoneName: 'short'
     });
   });
 
