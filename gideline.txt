@@ -1,9 +1,9 @@
-redeploy local docker:
-cd /home/michael/fieldin/up42-sentinel-poc && docker rm -f up42-poc >/dev/null 2>&1 || true && docker build -t up42-poc:local -f Dockerfile . && docker run -d -p 8080:8080 --name up42-poc --env-file .env -v /home/michael/fieldin/up42-sentinel-poc/data:/app/data up42-poc:local
+redeploy local docker (from repo root):
+docker rm -f up42-poc >/dev/null 2>&1 || true && docker build -t up42-poc:local -f Dockerfile . && docker run -d -p 8080:8080 --name up42-poc --env-file .env -v "$(pwd)/data:/app/data" up42-poc:local
 
 
-deploy to keberctl
-cd /home/michael/fieldin/up42-sentinel-poc && ./deploy.sh latest 2>&1
+deploy to kubernetes (from repo root):
+./deploy.sh latest 2>&1
 
 start the fetch:
 # Start the services
@@ -36,5 +36,4 @@ Pipeline: Fetch → Tiles → WOW SR → SR Tiles
 Monitor progress: make pipeline-status JOB=<job_id>
 
 make pipeline-watch JOB=pipeline_20260114_140807
-
 

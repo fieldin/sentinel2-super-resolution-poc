@@ -2,20 +2,20 @@
 set -e
 
 # Configuration
-AWS_ACCOUNT_ID="569061878514"
+AWS_ACCOUNT_ID="838148646721"
 AWS_REGION="eu-west-1"
 ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 IMAGE_NAME="sentinel-poc"
 TAG="${1:-latest}"
 NAMESPACE="sentinel-poc"
-PROJECT_DIR="/home/michael/fieldin/up42-sentinel-poc"
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "🚀 Deploying Sentinel-2 POC to Kubernetes"
 echo "=========================================="
 echo "Image: ${ECR_REGISTRY}/${IMAGE_NAME}:${TAG}"
 echo ""
 
-cd ${PROJECT_DIR}
+cd "${PROJECT_DIR}"
 
 # Step 1: Build client (optional - can skip if no changes)
 if [[ "$2" != "--skip-build" ]]; then
@@ -39,7 +39,7 @@ echo "✅ Image built"
 # Step 3: Login to ECR and push
 echo ""
 echo "📤 Step 3: Pushing to ECR..."
-aws ecr get-login-password --region ${AWS_REGION} | \
+AWS_PROFILE=awsnew aws ecr get-login-password --region ${AWS_REGION} | \
     docker login --username AWS --password-stdin ${ECR_REGISTRY}
 docker push ${ECR_REGISTRY}/${IMAGE_NAME}:${TAG}
 echo "✅ Image pushed"
@@ -81,10 +81,10 @@ echo "🔗 Services:"
 kubectl get svc -n ${NAMESPACE}
 
 echo ""
-echo "🌐 Public URL: http://sentinel-poc.dev.fieldintech.com"
+echo "🌐 Public URL: http://sentinel-poc-stg.fieldintech.com"
 echo ""
 
 # Health check
 echo "🩺 Health check:"
-curl -s --max-time 10 http://sentinel-poc.dev.fieldintech.com/health || echo "⚠️  Health check failed - ALB may still be registering targets"
+curl -s --max-time 10 http://sentinel-poc-stg.fieldintech.com/health || echo "⚠️  Health check failed - ALB may still be registering targets"
 echo ""
