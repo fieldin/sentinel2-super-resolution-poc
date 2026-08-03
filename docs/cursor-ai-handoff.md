@@ -19,7 +19,7 @@
 ## Dev quick start
 
 ```bash
-cd /home/michael/fieldin/sentinel2-super-resolution-poc
+cd sentinel2-super-resolution-poc
 cp .env.example .env   # MAPBOX_ACCESS_TOKEN required
 make up
 make pipeline
