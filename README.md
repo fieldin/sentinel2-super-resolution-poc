@@ -342,6 +342,15 @@ up42-sentinel-poc/
 
 MIT License - See LICENSE file for details.
 
+## 📚 Technical handoff docs
+
+Deep documentation for engineers and Cursor AI: **[docs/README.md](docs/README.md)**
+
+- [Architecture overview](docs/architecture-overview.md)
+- [Pipeline & API deep dive](docs/pipeline-and-api-deep-dive.md)
+- [Client & deployment](docs/client-and-deployment.md)
+- [Cursor AI handoff](docs/cursor-ai-handoff.md)
+
 ## 🙏 Credits
 
 - [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN) - AI Super-Resolution
