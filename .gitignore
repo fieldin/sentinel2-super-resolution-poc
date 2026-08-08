@@ -28,6 +28,7 @@ models/
 # Node
 node_modules/
 dist/
+client/.npmrc
 
 # IDE
 .idea/
